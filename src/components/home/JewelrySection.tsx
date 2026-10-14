@@ -1,0 +1,218 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+// Mengimpor komponen kartu produk standar (gambar, rating, harga, tombol wishlist/keranjang)
+import ProductCard from "@/components/product/ProductCard";
+// Mengimpor data produk khusus kategori perhiasan dan aksesoris
+import { jewelryProductsData } from "@/data/products";
+
+export default function JewelrySection() {
+  const baseCount = jewelryProductsData.length;
+  // Duplikasi 3 set data produk untuk efek carousel berputar tanpa batas (seamless infinite loop)
+  const extendedProducts = [
+    ...jewelryProductsData,
+    ...jewelryProductsData,
+    ...jewelryProductsData,
+  ];
+
+  const [currentIndex, setCurrentIndex] = useState(baseCount);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+  const [isMoving, setIsMoving] = useState(false);
+  const [itemsPerView, setItemsPerView] = useState(6);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startXRef = useRef<number | null>(null);
+
+  // Menyesuaikan jumlah kartu perhiasan per layar (2 di mobile, 3 di tablet, 4 di laptop, 6 di desktop)
+  useEffect(() => {
+    const updateItemsPerView = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        setItemsPerView(2);
+      } else if (width < 768) {
+        setItemsPerView(3);
+      } else if (width < 1024) {
+        setItemsPerView(4);
+      } else {
+        setItemsPerView(6);
+      }
+    };
+
+    updateItemsPerView();
+    window.addEventListener("resize", updateItemsPerView);
+    return () => window.removeEventListener("resize", updateItemsPerView);
+  }, []);
+
+  // Slide navigation: exactly 1 card per click
+  const handleNext = () => {
+    if (isMoving) return;
+    setIsMoving(true);
+    setIsTransitioning(true);
+    setCurrentIndex((prev) => prev + 1);
+  };
+
+  const handlePrev = () => {
+    if (isMoving) return;
+    setIsMoving(true);
+    setIsTransitioning(true);
+    setCurrentIndex((prev) => prev - 1);
+  };
+
+  // Seamless reset for unlimited scrolling
+  const handleTransitionEnd = () => {
+    setIsMoving(false);
+    if (currentIndex >= baseCount * 2) {
+      setIsTransitioning(false);
+      setCurrentIndex((prev) => prev - baseCount);
+    } else if (currentIndex < baseCount) {
+      setIsTransitioning(false);
+      setCurrentIndex((prev) => prev + baseCount);
+    }
+  };
+
+  useEffect(() => {
+    if (!isTransitioning) {
+      const timer = setTimeout(() => {
+        setIsTransitioning(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isTransitioning]);
+
+  // Drag & Swipe navigation
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    startXRef.current = e.clientX;
+    setDragOffset(0);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || startXRef.current === null) return;
+    setDragOffset(e.clientX - startXRef.current);
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (dragOffset > 40) {
+      handlePrev();
+    } else if (dragOffset < -40) {
+      handleNext();
+    }
+    setDragOffset(0);
+    startXRef.current = null;
+  };
+
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      setDragOffset(0);
+      startXRef.current = null;
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsDragging(true);
+    startXRef.current = e.touches[0].clientX;
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || startXRef.current === null) return;
+    setDragOffset(e.touches[0].clientX - startXRef.current);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (dragOffset > 40) {
+      handlePrev();
+    } else if (dragOffset < -40) {
+      handleNext();
+    }
+    setDragOffset(0);
+    startXRef.current = null;
+  };
+
+  const itemWidthPercentage = 100 / itemsPerView;
+
+  return (
+    <section className="w-full my-6 font-sans">
+      {/* Header section dengan judul dan tautan navigasi ke halaman perhiasan */}
+      <div className="flex items-center justify-between mb-3.5">
+        <Link href="/products/jewelry-accessories" className="group/title inline-block">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 group-hover/title:text-[#00a99d] tracking-tight transition-colors">
+            Jewelry &amp; Accessories
+          </h2>
+        </Link>
+        <Link
+          href="/products/jewelry-accessories"
+          className="text-xs sm:text-sm font-medium text-[#1963d8] hover:underline flex items-center gap-1 transition cursor-pointer"
+        >
+          View All <span className="text-sm">→</span>
+        </Link>
+      </div>
+
+      <div className="relative group select-none">
+        {/* Tombol navigasi panah kiri */}
+        <button
+          type="button"
+          onClick={handlePrev}
+          className="absolute -left-3.5 top-[38%] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-600 hover:text-[#00a99d] hover:bg-white hover:scale-105 active:scale-95 transition cursor-pointer"
+          aria-label="Previous product"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {/* Viewport & Sliding Track */}
+        <div
+          className={`overflow-hidden w-full py-1 ${
+            isDragging ? "cursor-grabbing" : "cursor-grab"
+          }`}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div
+            className="flex will-change-transform"
+            style={{
+              transform: `translateX(calc(-${currentIndex * itemWidthPercentage}% + ${dragOffset}px))`,
+              transition: isDragging
+                ? "none"
+                : isTransitioning
+                ? "transform 500ms cubic-bezier(0.25, 1, 0.5, 1)"
+                : "none",
+            }}
+            onTransitionEnd={handleTransitionEnd}
+          >
+            {extendedProducts.map((product, idx) => (
+              <div
+                key={`${product.id}-${idx}`}
+                className="shrink-0 px-1.5"
+                style={{ width: `${itemWidthPercentage}%` }}
+              >
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Navigation Arrow Right */}
+        <button
+          type="button"
+          onClick={handleNext}
+          className="absolute -right-3.5 top-[38%] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-600 hover:text-[#00a99d] hover:bg-white hover:scale-105 active:scale-95 transition cursor-pointer"
+          aria-label="Next product"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </section>
+  );
+}
