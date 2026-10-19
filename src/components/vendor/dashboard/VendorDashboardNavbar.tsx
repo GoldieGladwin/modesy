@@ -47,7 +47,7 @@ export default function VendorDashboardNavbar({
     },
     {
       title: "Profile",
-      href: "/profile/daniel-jones",
+      href: "/profile/trendshop",
       icon: User,
       match: (path: string) =>
         path.startsWith("/profile") || path.startsWith("/vendor/profile"),
