@@ -1,22 +1,16 @@
 "use client";
 
-// 'useRef': hook React untuk menyimpan referensi nilai mutable (koordinat drag) tanpa memicu re-render komponen
 import React, { useState, useEffect, useRef } from "react";
-// Mengimpor komponen Link Next.js untuk navigasi rute client-side yang cepat
 import Link from "next/link";
-// Mengimpor ikon navigasi panah kiri dan kanan dari library lucide-react
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// Struktur data satu item brand (id angka, nama brand, dan elemen visual logo berupa ReactNode)
 interface BrandItem {
   id: number;
   name: string;
   logo: React.ReactNode;
 }
 
-// Daftar array statis merek dagang (brands) yang berisi logo SVG dan ikon masing-masing merek
 const brands: BrandItem[] = [
-
   {
     id: 1,
     name: "Armani",
@@ -111,53 +105,39 @@ const brands: BrandItem[] = [
 ];
 
 export default function BrandSection() {
-  // Jumlah dasar brand asli (8 brand)
   const baseCount = brands.length;
-  // Teknik infinite loop: menduplikasi array brand 3 kali agar transisi rotasi tampak tanpa batas (seamless)
+  // Duplicate for seamless infinite loop
   const extendedBrands = [...brands, ...brands, ...brands];
 
-  // Indeks aktif dimulai dari set tengah (baseCount = 8) agar bisa digeser ke kiri maupun ke kanan
   const [currentIndex, setCurrentIndex] = useState(baseCount);
-  // Mengontrol nyala/mati animasi transisi CSS saat posisi disetel ulang
   const [isTransitioning, setIsTransitioning] = useState(true);
-  // Status pengunci (debounce) agar klik cepat tidak menumpuk animasi
   const [isMoving, setIsMoving] = useState(false);
-  // Jumlah kartu brand yang ditampilkan per layar (responsif)
   const [itemsPerView, setItemsPerView] = useState(8);
-  // Jarak pergeseran horizontal (dalam pixel) saat kartu digeser manual dengan kursor/jari
   const [dragOffset, setDragOffset] = useState(0);
-  // Status apakah aksi drag sedang berlangsung
   const [isDragging, setIsDragging] = useState(false);
-  // Menyimpan posisi X kursor saat awal klik tanpa memicu re-render komponen
   const startXRef = useRef<number | null>(null);
 
-  // Efek samping untuk mendeteksi perubahan ukuran layar browser (responsive breakpoint)
+  // Responsive itemsPerView
   useEffect(() => {
     const updateItemsPerView = () => {
       const width = window.innerWidth;
-      // Layar ponsel (<640px) menampilkan 3 brand
       if (width < 640) {
         setItemsPerView(3);
-      // Layar tablet kecil (<768px) menampilkan 4 brand
       } else if (width < 768) {
         setItemsPerView(4);
-      // Layar tablet besar/laptop (<1024px) menampilkan 6 brand
       } else if (width < 1024) {
         setItemsPerView(6);
-      // Layar desktop besar menampilkan 8 brand
       } else {
         setItemsPerView(8);
       }
     };
 
     updateItemsPerView();
-    // Memasang event listener resize jendela browser
     window.addEventListener("resize", updateItemsPerView);
-    // Membersihkan listener saat komponen dilepas (unmount)
     return () => window.removeEventListener("resize", updateItemsPerView);
   }, []);
 
-  // Handler tombol navigasi panah kanan: menggeser maju tepat 1 kartu brand
+  // Slide navigation: exactly 1 brand card per click
   const handleNext = () => {
     if (isMoving) return;
     setIsMoving(true);
@@ -165,7 +145,6 @@ export default function BrandSection() {
     setCurrentIndex((prev) => prev + 1);
   };
 
-  // Handler tombol navigasi panah kiri: menggeser mundur tepat 1 kartu brand
   const handlePrev = () => {
     if (isMoving) return;
     setIsMoving(true);
@@ -173,21 +152,18 @@ export default function BrandSection() {
     setCurrentIndex((prev) => prev - 1);
   };
 
-  // Mekanisme snapping melingkar: saat animasi selesai, reset posisi ke set tengah tanpa animasi agar mulus
+  // Infinite circular snap
   const handleTransitionEnd = () => {
     setIsMoving(false);
-    // Jika mencapai akhir set ketiga, loncat kembali ke set kedua tanpa animasi
     if (currentIndex >= baseCount * 2) {
       setIsTransitioning(false);
       setCurrentIndex((prev) => prev - baseCount);
-    // Jika mencapai awal set pertama, loncat maju ke set kedua tanpa animasi
     } else if (currentIndex < baseCount) {
       setIsTransitioning(false);
       setCurrentIndex((prev) => prev + baseCount);
     }
   };
 
-  // Mengaktifkan kembali animasi CSS setelah jeda singkat 50ms pasca reset posisi
   useEffect(() => {
     if (!isTransitioning) {
       const timer = setTimeout(() => {
@@ -197,20 +173,18 @@ export default function BrandSection() {
     }
   }, [isTransitioning]);
 
-  // Logika interaksi drag mouse: mencatat koordinat awal saat tombol mouse ditekan
+  // Drag functionality
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     startXRef.current = e.clientX;
     setDragOffset(0);
   };
 
-  // Mengkalkulasi jarak pergeseran (dragOffset) saat mouse bergerak sambil ditekan
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || startXRef.current === null) return;
     setDragOffset(e.clientX - startXRef.current);
   };
 
-  // Menyelesaikan drag saat klik mouse dilepas; memicu geser kartu jika jarak > 30px
   const handleMouseUp = () => {
     if (!isDragging) return;
     setIsDragging(false);
@@ -223,7 +197,6 @@ export default function BrandSection() {
     startXRef.current = null;
   };
 
-  // Membatalkan drag jika kursor keluar dari batas area carousel
   const handleMouseLeave = () => {
     if (isDragging) {
       setIsDragging(false);
@@ -232,7 +205,6 @@ export default function BrandSection() {
     }
   };
 
-  // Handler drag untuk layar sentuh (touchscreen ponsel/tablet)
   const handleTouchStart = (e: React.TouchEvent) => {
     setIsDragging(true);
     startXRef.current = e.touches[0].clientX;
@@ -256,19 +228,18 @@ export default function BrandSection() {
     startXRef.current = null;
   };
 
-  // Menghitung persentase lebar satu item brand berdasarkan jumlah item per layar
   const itemWidthPercentage = 100 / itemsPerView;
 
   return (
     <section className="w-full my-6 font-sans">
-      {/* Judul section */}
+      {/* Title */}
       <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight mb-3.5">
         Shop By Brand
       </h2>
 
-      {/* Kontainer carousel dengan navigasi panah */}
+      {/* Brand Box with Navigation */}
       <div className="relative group select-none">
-        {/* Tombol navigasi panah kiri */}
+        {/* Left Arrow */}
         <button
           type="button"
           onClick={handlePrev}
@@ -278,7 +249,7 @@ export default function BrandSection() {
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        {/* Kontainer track geser brand yang mendukung gesture drag */}
+        {/* Brand Container with smooth 1-card infinite slide track */}
         <div
           className={`bg-white border border-gray-200 rounded-sm overflow-hidden shadow-2xs ${
             isDragging ? "cursor-grabbing" : "cursor-grab"
@@ -291,7 +262,6 @@ export default function BrandSection() {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Rel slider (track) dengan kalkulasi transform translateX dinamis */}
           <div
             className="flex will-change-transform divide-x divide-gray-200"
             style={{
@@ -304,14 +274,12 @@ export default function BrandSection() {
             }}
             onTransitionEnd={handleTransitionEnd}
           >
-            {/* Merender seluruh item brand hasil duplikasi */}
             {extendedBrands.map((brand, idx) => (
               <div
                 key={`${brand.id}-${idx}`}
                 className="shrink-0 h-20 sm:h-22 flex items-center justify-center p-3 hover:bg-gray-50/80 transition-colors group/item"
                 style={{ width: `${itemWidthPercentage}%` }}
               >
-                {/* Tautan ke halaman brand; cegah navigasi jika pengguna sedang melakukan swipe/drag */}
                 <Link
                   href="/"
                   draggable={false}
@@ -329,7 +297,7 @@ export default function BrandSection() {
           </div>
         </div>
 
-        {/* Tombol navigasi panah kanan */}
+        {/* Right Arrow */}
         <button
           type="button"
           onClick={handleNext}

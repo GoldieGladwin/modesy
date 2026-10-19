@@ -9,7 +9,7 @@ import {
   Check,
   Image as ImageIcon,
 } from "lucide-react";
-import { ModesyBannerItem } from "@/types/uliladmin";
+import { ModesyBannerItem } from "@/types/admin";
 
 interface Props {
   onNotify?: (msg: string) => void;
@@ -19,7 +19,7 @@ interface Props {
 const INITIAL_BANNERS: ModesyBannerItem[] = [
   {
     id: 5,
-    imageUrl: "/uploads/banners/block_68b02a364b90c6-71529931.webp",
+    imageUrl: "/images/banners/banner-2.webp",
     url: "https://modesy.codingest.net/shoes",
     language: "English",
     order: 2,
@@ -28,7 +28,7 @@ const INITIAL_BANNERS: ModesyBannerItem[] = [
   },
   {
     id: 4,
-    imageUrl: "/uploads/banners/block_68b02a59a1d144-08234125.webp",
+    imageUrl: "/images/banners/banner-3.webp",
     url: "https://modesy.codingest.net/clothing/womens-clothing",
     language: "English",
     order: 3,
@@ -37,7 +37,7 @@ const INITIAL_BANNERS: ModesyBannerItem[] = [
   },
   {
     id: 3,
-    imageUrl: "/uploads/banners/block_68b02a364b90c6-71529931.webp",
+    imageUrl: "/images/banners/banner-1.webp",
     url: "https://modesy.codingest.net/home-living",
     language: "English",
     order: 1,
@@ -129,14 +129,14 @@ export default function HomepageBannersManager({ onNotify, onEditBanner }: Props
         prev.map((b) =>
           b.id === editingBanner.id
             ? {
-                ...b,
-                url: bannerUrl,
-                language,
-                order: parsedOrder,
-                width: formattedWidth,
-                location,
-                imageUrl: selectedImage,
-              }
+              ...b,
+              url: bannerUrl,
+              language,
+              order: parsedOrder,
+              width: formattedWidth,
+              location,
+              imageUrl: selectedImage,
+            }
             : b
         )
       );
@@ -176,11 +176,10 @@ export default function HomepageBannersManager({ onNotify, onEditBanner }: Props
         className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-gray-700 py-1"
       >
         <div
-          className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200 ${
-            isChecked
-              ? "bg-[#5046e5] text-white ring-2 ring-[#5046e5]/20"
+          className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200 ${isChecked
+              ? "bg-[#605ca8] text-white ring-2 ring-[#605ca8]/20"
               : "border-2 border-gray-300 bg-white hover:border-gray-400"
-          }`}
+            }`}
         >
           {isChecked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
         </div>
@@ -202,7 +201,7 @@ export default function HomepageBannersManager({ onNotify, onEditBanner }: Props
         <button
           type="button"
           onClick={openAddModal}
-          className="px-4 py-2 bg-[#20c997] hover:bg-[#1baa80] text-white text-xs font-medium rounded-xs transition inline-flex items-center gap-1.5 self-start sm:self-auto shadow-none cursor-pointer active:scale-95"
+          className="px-4 py-2 bg-[#00a65a] hover:bg-[#008d4c] text-white text-xs font-medium rounded-xs transition inline-flex items-center gap-1.5 self-start sm:self-auto shadow-none cursor-pointer active:scale-95"
         >
           <Plus className="w-3.5 h-3.5 stroke-[3]" />
           Add Banner
@@ -271,9 +270,8 @@ export default function HomepageBannersManager({ onNotify, onEditBanner }: Props
               return (
                 <tr
                   key={b.id}
-                  className={`hover:bg-gray-50/70 transition-all duration-200 ${
-                    isDeleting ? "opacity-0 -translate-x-3" : "opacity-100 translate-x-0"
-                  }`}
+                  className={`hover:bg-gray-50/70 transition-all duration-200 ${isDeleting ? "opacity-0 -translate-x-3" : "opacity-100 translate-x-0"
+                    }`}
                 >
                   <td className="py-3.5 px-3 text-gray-700 font-normal">{b.id}</td>
                   <td className="py-3.5 px-3">
@@ -475,7 +473,7 @@ export default function HomepageBannersManager({ onNotify, onEditBanner }: Props
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#20c997] hover:bg-[#1baa80] text-white font-medium rounded-xs transition shadow-none cursor-pointer active:scale-95"
+                  className="px-4 py-2 bg-[#00a65a] hover:bg-[#008d4c] text-white font-medium rounded-xs transition shadow-none cursor-pointer active:scale-95"
                 >
                   {editingBanner ? "Save Changes" : "Add Banner"}
                 </button>

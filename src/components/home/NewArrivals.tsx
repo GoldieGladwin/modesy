@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Star, Heart, ShoppingBag, ArrowRight } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+import { getProducts } from "@/lib/supabase/products";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
-// Struktur data model produk marketplace lengkap dengan dukungan secondary hover image dan opsi quote
 export interface ProductItem {
   id: number;
   title: string;
@@ -12,13 +14,13 @@ export interface ProductItem {
   sellerLink?: string;
   image: string;
   fallbackImage: string;
-  hoverImage?: string; // Gambar alternatif kedua yang tampil halus saat kursor mengarah ke produk
+  hoverImage?: string;
   fallbackHoverImage?: string;
-  rating: number; // Skor penilaian bintang (skala 0 sampai 5)
-  likes: number; // Jumlah pengguna yang menyukai / menambahkan ke wishlist
+  rating: number; // 0 sampai 5
+  likes: number;
   price?: number;
   oldPrice?: number;
-  isQuote?: boolean; // Bernilai true jika produk membutuhkan permintaan penawaran harga khusus (Request a Quote)
+  isQuote?: boolean;
   link: string;
 }
 
@@ -38,7 +40,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 40,
     oldPrice: 45,
-    link: "#",
+    link: "/product/47",
   },
   {
     id: 46,
@@ -54,7 +56,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 59,
     oldPrice: 69,
-    link: "#",
+    link: "/product/46",
   },
   {
     id: 45,
@@ -70,7 +72,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 130,
     oldPrice: 150,
-    link: "#",
+    link: "/product/45",
   },
   {
     id: 44,
@@ -82,7 +84,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     rating: 0,
     likes: 1,
     price: 299,
-    link: "#",
+    link: "/product/44",
   },
   {
     id: 43,
@@ -97,11 +99,11 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     rating: 0,
     likes: 1,
     isQuote: true,
-    link: "#",
+    link: "/product/43",
   },
   {
     id: 42,
-    title: "Handcrafted decorative pillow for a luxurious...",
+    title: "Handcrafted decorative pillow for a luxurious touch",
     seller: "Admin",
     image: "/images/products/pillow.webp",
     fallbackImage:
@@ -113,7 +115,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 59,
     oldPrice: 69,
-    link: "#",
+    link: "/product/42",
   },
   {
     id: 41,
@@ -126,7 +128,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 48,
     oldPrice: 55,
-    link: "#",
+    link: "/product/41",
   },
   {
     id: 40,
@@ -142,7 +144,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 59,
     oldPrice: 69,
-    link: "#",
+    link: "/product/40",
   },
   {
     id: 39,
@@ -158,7 +160,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 29,
     oldPrice: 39,
-    link: "#",
+    link: "/product/39",
   },
   {
     id: 38,
@@ -174,7 +176,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 80,
     oldPrice: 89,
-    link: "#",
+    link: "/product/38",
   },
   {
     id: 37,
@@ -189,7 +191,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     rating: 0,
     likes: 0,
     price: 79,
-    link: "#",
+    link: "/product/37",
   },
   {
     id: 36,
@@ -202,7 +204,7 @@ export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
     likes: 0,
     price: 15,
     oldPrice: 20,
-    link: "#",
+    link: "/product/36",
   },
 ];
 
@@ -235,9 +237,63 @@ export const PROMO_BANNERS = [
 ];
 
 export default function NewArrivals() {
-  const [wishlistState, setWishlistState] = useState<{ [key: number]: boolean }>({});
+  const { addToCart } = useCart();
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [wishlistState, setWishlistState] = useState<{ [key: string | number]: boolean }>({});
 
-  const toggleWishlist = (id: number, e: React.MouseEvent) => {
+  useEffect(() => {
+    async function loadNewArrivals() {
+      if (isSupabaseConfigured()) {
+        try {
+          const { data } = await getProducts({ status: "active", limit: 12 });
+          if (data && data.length > 0) {
+            const mapped: ProductItem[] = data.map((p) => {
+              const sortedImages = p.product_images
+                ? [...p.product_images].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                : [];
+              const primary =
+                sortedImages.find((img) => img.is_primary)?.image_url ||
+                sortedImages[0]?.image_url ||
+                "/images/products/midi-skirt.webp";
+              const secondary = sortedImages[1]?.image_url || primary;
+
+              const isQuote = p.listing_type === "ordinary_listing" || Number(p.price) === 0;
+              const priceNum = Math.round(Number(p.price));
+              const disc = Number(p.discount_rate) || 0;
+              const oldPriceNum = disc > 0 && !isQuote ? Math.round(priceNum / (1 - disc / 100)) : undefined;
+
+              return {
+                id: (p.slug || p.id) as any,
+                title: p.title,
+                seller: p.profiles?.username || "Trendshop",
+                image: primary,
+                fallbackImage: primary,
+                hoverImage: secondary,
+                fallbackHoverImage: secondary,
+                rating: Number(p.rating_avg) || 5,
+                likes: 0,
+                price: isQuote ? undefined : priceNum,
+                oldPrice: oldPriceNum,
+                isQuote,
+                link: `/product/${p.slug || p.id}`,
+              };
+            });
+            setProducts(mapped);
+          }
+        } catch (e) {
+          console.error("Error loading new arrivals:", e);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    }
+    loadNewArrivals();
+  }, []);
+
+  const toggleWishlist = (id: string | number, e: React.MouseEvent) => {
     e.preventDefault();
     setWishlistState((prev) => ({
       ...prev,
@@ -254,7 +310,7 @@ export default function NewArrivals() {
             New Arrivals
           </h2>
           <Link
-            href="#"
+            href="/products"
             className="group inline-flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-semibold text-gray-700 hover:text-black transition-colors"
           >
             <span>View All</span>
@@ -262,14 +318,30 @@ export default function NewArrivals() {
           </Link>
         </div>
 
-        {/* Grid Produk New Arrivals: 6 Kolom di Layar Lebar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-5 lg:gap-6">
-          {NEW_ARRIVALS_PRODUCTS.map((product) => {
-            const isLiked = wishlistState[product.id] ?? false;
+        {/* Grid Produk New Arrivals */}
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-5 lg:gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-lg p-2.5 animate-pulse space-y-2.5">
+                <div className="aspect-square bg-gray-100 rounded-md" />
+                <div className="h-4 bg-gray-200 rounded w-3/4 mt-2" />
+                <div className="h-3 bg-gray-100 rounded w-1/2" />
+                <div className="h-4 bg-gray-200 rounded w-1/3 mt-2" />
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-10 text-gray-400 bg-white border border-gray-200 rounded-lg text-sm">
+            No new arrivals found in database.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-5 lg:gap-6">
+            {products.map((product) => {
+              const isLiked = wishlistState[product.id] ?? false;
 
-            return (
-              <div
-                key={product.id}
+              return (
+                <div
+                  key={product.id}
                 className="group h-full flex flex-col bg-white rounded-lg border border-gray-200/90 hover:border-gray-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
               >
                 {/* Gambar Produk & Tombol Action Overlay */}
@@ -316,8 +388,19 @@ export default function NewArrivals() {
                     <button
                       type="button"
                       aria-label="Add to cart"
+                      title="Add to cart"
                       className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white text-gray-700 hover:text-black hover:bg-gray-50 shadow-md flex items-center justify-center transition-all cursor-pointer hover:scale-105"
-                      onClick={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addToCart({
+                          id: product.id,
+                          title: product.title,
+                          price: product.price ? `$${product.price}` : "Request a Quote",
+                          image: product.fallbackImage || product.image,
+                          seller: product.seller,
+                        }, 1);
+                      }}
                     >
                       <ShoppingBag className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                     </button>
@@ -377,7 +460,7 @@ export default function NewArrivals() {
                       {/* Jumlah Likes / Hati */}
                       <div className="flex items-center gap-1 text-gray-400 font-medium">
                         <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
-                        <span>{product.likes + (isLiked ? 1 : 0)}</span>
+                        <span>{(Number(product.likes) || 0) + (isLiked ? 1 : 0)}</span>
                       </div>
                     </div>
                   </div>
@@ -412,6 +495,7 @@ export default function NewArrivals() {
             );
           })}
         </div>
+        )}
 
         {/* 3 Promo Banners di Bawah New Arrivals Sesuai Gambar ke-2 */}
         <div className="mt-12 sm:mt-16 grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-7">

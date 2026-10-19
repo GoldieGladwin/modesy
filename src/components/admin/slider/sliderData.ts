@@ -39,8 +39,8 @@ export const INITIAL_SLIDER_ITEMS: SliderItem[] = [
     animationTitle: "bounceIn",
     animationDescription: "bounceInDown",
     animationButton: "bounceInRight",
-    image: "/images/slider/slider-2.webp",
-    imageMobile: "/images/slider/slider-2-mobile.webp",
+    image: "/images/slider/slider-1.webp",
+    imageMobile: "/images/slider/slider-1-mobile.webp",
     language: "Arabic",
   },
   {
@@ -56,8 +56,8 @@ export const INITIAL_SLIDER_ITEMS: SliderItem[] = [
     animationTitle: "fadeInUp",
     animationDescription: "fadeInUp",
     animationButton: "fadeInUp",
-    image: "/images/slider/slider-1.webp",
-    imageMobile: "/images/slider/slider-1-mobile.webp",
+    image: "/images/slider/slider-2.webp",
+    imageMobile: "/images/slider/slider-2-mobile.webp",
     language: "Arabic",
   },
   {
@@ -73,8 +73,8 @@ export const INITIAL_SLIDER_ITEMS: SliderItem[] = [
     animationTitle: "bounceIn",
     animationDescription: "bounceInDown",
     animationButton: "bounceInRight",
-    image: "/images/slider/slider-2.webp",
-    imageMobile: "/images/slider/slider-2-mobile.webp",
+    image: "/images/slider/slider-1.webp",
+    imageMobile: "/images/slider/slider-1-mobile.webp",
     language: "English",
   },
   {
@@ -90,8 +90,8 @@ export const INITIAL_SLIDER_ITEMS: SliderItem[] = [
     animationTitle: "fadeInUp",
     animationDescription: "fadeInUp",
     animationButton: "fadeInUp",
-    image: "/images/slider/slider-1.webp",
-    imageMobile: "/images/slider/slider-1-mobile.webp",
+    image: "/images/slider/slider-2.webp",
+    imageMobile: "/images/slider/slider-2-mobile.webp",
     language: "English",
   },
 ];
@@ -102,8 +102,8 @@ export const DEFAULT_SLIDER_SETTINGS: SliderSettings = {
   effect: "Slide",
 };
 
-const KEY_SLIDER_ITEMS = "modesy_admin_slider_items_v2";
-const KEY_SLIDER_SETTINGS = "modesy_admin_slider_settings_v2";
+const KEY_SLIDER_ITEMS = "modesy_admin_slider_items_v4";
+const KEY_SLIDER_SETTINGS = "modesy_admin_slider_settings_v4";
 
 /* Slider Items Storage */
 export function getStoredSliderItems(): SliderItem[] {
@@ -117,7 +117,15 @@ export function getStoredSliderItems(): SliderItem[] {
       );
       return INITIAL_SLIDER_ITEMS;
     }
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(
+        KEY_SLIDER_ITEMS,
+        JSON.stringify(INITIAL_SLIDER_ITEMS)
+      );
+      return INITIAL_SLIDER_ITEMS;
+    }
+    return parsed;
   } catch {
     return INITIAL_SLIDER_ITEMS;
   }
@@ -137,10 +145,18 @@ export function saveStoredSliderItems(items: SliderItem[]): void {
   }
 }
 
-export function deleteStoredSliderItem(id: number): SliderItem[] {
+import { createSlider, updateSlider, deleteSlider } from "@/lib/supabase/sliders";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+
+export function deleteStoredSliderItem(id: number | string): SliderItem[] {
   const items = getStoredSliderItems();
   const updated = items.filter((i) => i.id !== id);
   saveStoredSliderItems(updated);
+
+  if (isSupabaseConfigured()) {
+    deleteSlider(String(id)).catch((e) => console.error("Supabase deleteSlider error:", e));
+  }
+
   return updated;
 }
 
@@ -149,8 +165,25 @@ export function saveSingleSliderItem(item: SliderItem): SliderItem[] {
   const idx = items.findIndex((i) => i.id === item.id);
   if (idx >= 0) {
     items[idx] = item;
+    if (isSupabaseConfigured()) {
+      updateSlider({
+        id: String(item.id),
+        title: item.title,
+        link_url: item.link,
+        image_url: item.image,
+        order_index: item.order,
+      }).catch((e) => console.error("Supabase updateSlider error:", e));
+    }
   } else {
     items.unshift(item);
+    if (isSupabaseConfigured()) {
+      createSlider({
+        title: item.title,
+        link_url: item.link,
+        image_url: item.image,
+        order_index: item.order,
+      }).catch((e) => console.error("Supabase createSlider error:", e));
+    }
   }
   saveStoredSliderItems(items);
   return items;

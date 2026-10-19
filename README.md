@@ -1,6 +1,30 @@
-# Modesy Marketplace Clone — Arsitektur & Panduan Panel Admin
+# Modesy Marketplace Clone
 
-Dokumentasi ini merangkum **struktur proyek, status file terkini, dan rancangan implementasi Modesy Admin Panel** berbasis Next.js App Router, Tailwind CSS, dan Lucide React agar rapi, terstruktur, dan mudah dipahami.
+> **⚠️ Penafian & Hak Cipta (Disclaimer & Copyright):**  
+> Proyek ini adalah **duplikat / klon (clone)** dari website marketplace asli **Modesy** (yang dikembangkan oleh [Codingest](https://modesy.codingest.net/)). Seluruh hak cipta atas nama, desain visual, identitas merek, aset, dan konsep antarmuka adalah sepenuhnya milik pemegang hak cipta aslinya. Proyek ini dibuat dan dikembangkan murni untuk keperluan **pembelajaran, studi kasus tugas Rekayasa Perangkat Lunak (RPL), serta eksplorasi teknologi secara non-komersial**.
+
+---
+
+## 📖 Tentang Proyek Ini
+
+**Modesy Marketplace Clone** adalah platform web e-commerce dan multi-vendor marketplace modern yang mereproduksi fungsionalitas dan antarmuka web Modesy. Dibangun menggunakan teknologi modern:
+
+- **Framework**: [Next.js](https://nextjs.org/) (App Router) & [React](https://react.dev/)
+- **Bahasa**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Lucide React](https://lucide.dev/) (Icons)
+- **Backend & Database**: [Supabase](https://supabase.com/) (Autentikasi Pengguna, Database PostgreSQL, & Storage)
+
+### Fitur & Peran Utama (Multi-Role):
+1. **Front Store / Guest & Member**:
+   - Eksplorasi katalog produk, filter kategori multi-level, banner slider promosi.
+   - Fitur keranjang (Cart), Wishlist, sistem ulasan & rating produk.
+   - Area member: Riwayat pesanan, pengaturan profil, dan dompet saldo (wallet deposit).
+2. **Vendor Portal**:
+   - Dashboard toko vendor, manajemen produk (tambah, edit, dan status stok/harga).
+   - Riwayat penjualan toko, penarikan saldo (payouts), dan profil toko publik.
+3. **Administrator Panel**:
+   - Dashboard analitik metrik (Orders, Products, Pending, Members).
+   - Manajemen kategori bertingkat, persetujuan produk pending, dan tata kelola pesanan & transaksi.
 
 ---
 
@@ -210,5 +234,16 @@ Untuk melihat hasil proyek saat pengembangan:
 ```bash
 npm run dev
 ```
-Akses halaman admin di browser:
-👉 **`http://localhost:3000/admin`**
+Akses halaman utama atau admin di browser:
+- Toko / Beranda: 👉 **`http://localhost:3000`**
+- Panel Admin: 👉 **`http://localhost:3000/admin`**
+- Dashboard Vendor: 👉 **`http://localhost:3000/dashboard`**
+
+---
+
+## ⚖️ Hak Cipta & Lisensi (Copyright & License)
+
+- **Atribusi Modesy**: Proyek ini merupakan karya reproduksi/kloning mandiri yang terinspirasi dan merujuk pada produk marketplace **Modesy** buatan **[Codingest](https://modesy.codingest.net/)**. Seluruh hak kekayaan intelektual (HKI), nama dagang, logo, konsep desain, dan merek dagang Modesy merupakan hak milik sepenuhnya dari **Codingest**.
+- **Tujuan Pembelajaran**: Kode dalam repositori ini dibuat untuk keperluan studi akademik Rekayasa Perangkat Lunak (RPL), portofolio, dan latihan pengembangan aplikasi full-stack modern.
+- **Sifat Non-Komersial**: Repositori ini **tidak berafiliasi resmi** dengan Codingest dan **tidak diperjualbelikan** untuk kepentingan komersial.
+

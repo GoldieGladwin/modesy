@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (user: { email: string; name: string }) => void;
+  onSuccess?: (user: { email: string; name: string; password?: string }) => void;
 }
 
 export default function LoginModal({
@@ -16,8 +16,8 @@ export default function LoginModal({
   onSuccess,
 }: LoginModalProps) {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@codingest.net");
-  const [password, setPassword] = useState("1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +65,21 @@ export default function LoginModal({
       setIsLoading(false);
       setSuccess("Login successful!");
       if (onSuccess) {
-        const isAdmin = email.toLowerCase().includes("admin");
+        const isVendor =
+          email.toLowerCase().includes("trendshop") ||
+          email.toLowerCase().includes("vendor");
+        const isModerator = email.toLowerCase().includes("moderator");
+        const isAdmin = !isVendor && !isModerator && email.toLowerCase().includes("admin");
         onSuccess({
           email,
-          name: isAdmin ? "Admin" : (email.split("@")[0] || "User"),
+          password,
+          name: isVendor
+            ? "Trendshop"
+            : isModerator
+            ? "Moderator"
+            : isAdmin
+            ? "Admin"
+            : "Member",
         });
       }
       setTimeout(onClose, 800);
@@ -105,7 +116,7 @@ export default function LoginModal({
         {/* Connect with Google */}
         <button
           type="button"
-          onClick={() => alert("Fitur Login Google (Demo)")}
+          onClick={() => alert("Fitur Login Google")}
           className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded border border-gray-300 shadow-xs transition"
         >
           <svg width="20" height="20" viewBox="0 0 128 128">
@@ -136,33 +147,6 @@ export default function LoginModal({
 
         <div className="text-center my-4">
           <span className="text-xs text-gray-500 font-normal">Or login with email</span>
-        </div>
-
-        {/* Quick autofill helper */}
-        <div className="flex items-center justify-between bg-gray-50 p-2 rounded text-[11px] text-gray-500 mb-4 border border-gray-100">
-          <span>Isi Cepat Demo:</span>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setEmail("admin@codingest.net");
-                setPassword("1234");
-              }}
-              className="px-2 py-0.5 rounded bg-white border border-gray-200 text-[#00a99d] font-semibold hover:bg-[#00a99d] hover:text-white transition"
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail("buyer@codingest.net");
-                setPassword("123456");
-              }}
-              className="px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-700 font-semibold hover:bg-gray-200 transition"
-            >
-              Buyer
-            </button>
-          </div>
         </div>
 
         {/* Error / Success messages */}

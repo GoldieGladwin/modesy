@@ -2,9 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { CATEGORIES, CategoryItem } from "@/data/categories";
+import { usePathname } from "next/navigation";
+import { CATEGORIES, CategoryItem, getCategorySlug } from "@/data/categories";
 import LocationModal from "@/components/modals/LocationModal";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import {
   Layers,
   LayoutGrid,
@@ -19,15 +21,24 @@ import {
 
 interface HeaderProps {
   onOpenLoginModal?: () => void;
-  currentUser?: { email: string; name: string; avatar?: string } | null;
+  currentUser?: {
+    email: string;
+    name: string;
+    avatar?: string;
+    role?: "admin" | "vendor" | "member" | "moderator";
+  } | null;
   onLogout?: () => void;
+  cartCount?: number;
 }
 
 export default function Header({
   onOpenLoginModal,
   currentUser,
   onLogout,
+  cartCount = 3,
 }: HeaderProps = {}) {
+  const { totalCartItems } = useCart();
+  const pathname = usePathname();
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState("USD ($)");
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
@@ -59,6 +70,8 @@ export default function Header({
   // Admin dropdown state
   const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
   const adminRef = useRef<HTMLDivElement>(null);
+
+  const isVendor = effectiveUser?.role === "vendor";
 
   const adminProfileMenus = [
     {
@@ -107,6 +120,127 @@ export default function Header({
       icon: LogOut,
     },
   ];
+
+  // Vendor dropdown menus (Exactly 8 items as requested in the screenshot)
+  const vendorProfileMenus = [
+    {
+      title: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutGrid,
+    },
+    {
+      title: "Profile",
+      href: "/profile/daniel-jones",
+      icon: User,
+    },
+    {
+      title: "Wallet",
+      href: "/wallet",
+      icon: Wallet,
+    },
+    {
+      title: "Orders",
+      href: "/orders",
+      icon: ShoppingBasket,
+    },
+    {
+      title: "My Coupons",
+      href: "/my-coupons",
+      icon: Tag,
+    },
+    {
+      title: "Messages",
+      href: "/messages",
+      icon: MessageSquare,
+    },
+    {
+      title: "Profile Settings",
+      href: "/settings",
+      icon: Settings,
+    },
+    {
+      title: "Logout",
+      href: "#logout",
+      icon: LogOut,
+    },
+  ];
+
+  // Member dropdown menus
+  const memberProfileMenus = [
+    {
+      title: "Profile",
+      href: "/member/profile",
+      icon: User,
+    },
+    {
+      title: "Wallet",
+      href: "/member/wallet",
+      icon: Wallet,
+    },
+    {
+      title: "Orders",
+      href: "/member/orders",
+      icon: ShoppingBasket,
+    },
+    {
+      title: "My Coupons",
+      href: "/member/my-coupons",
+      icon: Tag,
+    },
+    {
+      title: "Messages",
+      href: "/member/messages",
+      icon: MessageSquare,
+    },
+    {
+      title: "Profile Settings",
+      href: "/member/settings",
+      icon: Settings,
+    },
+    {
+      title: "Logout",
+      href: "#logout",
+      icon: LogOut,
+    },
+  ];
+
+  // Moderator dropdown menus
+  const moderatorProfileMenus = [
+    {
+      title: "Moderator Panel",
+      href: "/moderator/admin-panel",
+      icon: Layers,
+    },
+    {
+      title: "Profile",
+      href: "/admin/profile",
+      icon: User,
+    },
+    {
+      title: "Messages",
+      href: "/admin/messages",
+      icon: MessageSquare,
+    },
+    {
+      title: "Profile Settings",
+      href: "/admin/profile-settings",
+      icon: Settings,
+    },
+    {
+      title: "Logout",
+      href: "#logout",
+      icon: LogOut,
+    },
+  ];
+
+  const activeProfileMenus =
+    effectiveUser?.role === "vendor"
+      ? vendorProfileMenus
+      : effectiveUser?.role === "moderator"
+      ? moderatorProfileMenus
+      : effectiveUser?.role === "member"
+      ? memberProfileMenus
+      : adminProfileMenus;
 
   const currencyRef = useRef<HTMLDivElement>(null);
   const languageRef = useRef<HTMLDivElement>(null);
@@ -317,7 +451,7 @@ export default function Header({
               )}
             </div>
 
-            {/* Login / Register or Admin Profile Dropdown */}
+            {/* Login / Register or Profile Dropdown (Vendor / Admin) */}
             {effectiveIsLoggedIn ? (
               <div className="relative" ref={adminRef}>
                 <button
@@ -326,12 +460,17 @@ export default function Header({
                   className="flex items-center space-x-1.5 text-[#333333] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0 text-[14px]"
                 >
                   <img
-                    src={effectiveUser?.avatar || "/assets/img/admin-avatar.jpg"}
-                    alt="Admin"
+                    src={
+                      effectiveUser?.avatar ||
+                      (isVendor
+                        ? "/assets/img/trendshop-avatar.jpg"
+                        : "/assets/img/admin-avatar.jpg")
+                    }
+                    alt={effectiveUser?.name || (isVendor ? "Trendshop" : "Admin")}
                     className="w-[26px] h-[26px] rounded-full object-cover shrink-0 ring-1 ring-black/10"
                   />
                   <span className="font-medium text-[14px] text-[#333]">
-                    {effectiveUser?.name || "Admin"}
+                    {effectiveUser?.name || (isVendor ? "Trendshop" : "Admin")}
                   </span>
                   <svg
                     width="10"
@@ -352,10 +491,10 @@ export default function Header({
                   </svg>
                 </button>
 
-                {/* Dropdown Menu Sesuai Foto User */}
+                {/* Dropdown Menu Sesuai Role (Vendor: 8 Menu Persis Screenshot, Admin: 9 Menu) */}
                 {adminDropdownOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#ebebeb] rounded-[3px] shadow-[0_4px_15px_rgba(0,0,0,0.08)] z-50 py-2">
-                    {adminProfileMenus.map((item) => {
+                    {activeProfileMenus.map((item) => {
                       const Icon = item.icon;
                       if (item.title === "Logout") {
                         return (
@@ -473,7 +612,7 @@ export default function Header({
           <div className="flex items-center space-x-7 shrink-0">
             {/* Cart */}
             <Link
-              href="/"
+              href="/cart"
               className="flex items-center text-[#555555] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0 relative group"
             >
               <div className="relative mr-1.5 flex items-center">
@@ -491,9 +630,11 @@ export default function Header({
                   <circle cx="18" cy="20" r="1.5" fill="currentColor" />
                   <path d="M2 3h3.5l2.2 11.2a1.5 1.5 0 0 0 1.5 1.2h9.5a1.5 1.5 0 0 0 1.5-1.2L22 6H6" />
                 </svg>
-                <span className="hidden group-hover:flex absolute -top-1.5 -right-2 bg-[#00a99d] text-white text-[10px] w-4 h-4 rounded-full items-center justify-center font-bold">
-                  0
-                </span>
+                {(totalCartItems > 0 || (cartCount ?? 0) > 0) && (
+                  <span className="absolute -top-1.5 -right-2 bg-[#00a99d] text-white text-[10px] min-w-4 h-4 px-1 rounded-full flex items-center justify-center font-bold">
+                    {totalCartItems > 0 ? totalCartItems : cartCount}
+                  </span>
+                )}
               </div>
               <span className="text-[14px] font-medium leading-[26px]">
                 Cart
@@ -502,7 +643,7 @@ export default function Header({
 
             {/* Wishlist */}
             <Link
-              href="/"
+              href="/wishlist"
               className="flex items-center text-[#555555] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0"
             >
               <div className="mr-1.5 flex items-center">
@@ -527,7 +668,7 @@ export default function Header({
             {/* Sell Now Button */}
             {effectiveIsLoggedIn ? (
               <Link
-                href="/admin/dashboard"
+                href={isVendor ? "/vendor/dashboard" : "/admin/dashboard"}
                 className="bg-[#00a99d] hover:brightness-95 text-white text-[14px] font-medium px-5 py-2 rounded-[3px] transition-all cursor-pointer border-0 leading-[22px] inline-block text-center"
               >
                 Sell Now
@@ -556,17 +697,21 @@ export default function Header({
         <div className="max-w-[1320px] mx-auto px-4">
           <nav className="flex items-center space-x-1 overflow-x-auto">
             {CATEGORIES.map((category) => {
+              const categorySlug = getCategorySlug(category);
               const isHovered = hoveredCategoryId === category.id;
+              const isActive =
+                pathname === `/category/${categorySlug}` ||
+                pathname === `/guest/category/${categorySlug}`;
               return (
                 <div
                   key={category.id}
                   className="relative"
                   onMouseEnter={() => setHoveredCategoryId(category.id)}
                 >
-                  <button
-                    type="button"
-                    className={`group relative px-3.5 py-[14px] text-[14px] font-medium whitespace-nowrap transition-colors bg-transparent border-0 cursor-pointer ${
-                      isHovered
+                  <Link
+                    href={`/category/${categorySlug}`}
+                    className={`group relative px-3.5 py-[14px] text-[14px] font-medium whitespace-nowrap transition-colors block ${
+                      isHovered || isActive
                         ? "text-[#00a99d]"
                         : "text-[#222222] hover:text-[#00a99d]"
                     }`}
@@ -574,10 +719,10 @@ export default function Header({
                     <span>{category.title}</span>
                     <span
                       className={`absolute bottom-0 left-0 right-0 h-[2px] bg-[#00a99d] transition-opacity ${
-                        isHovered ? "opacity-100" : "opacity-0"
+                        isHovered || isActive ? "opacity-100" : "opacity-0"
                       }`}
                     />
-                  </button>
+                  </Link>
                 </div>
               );
             })}
@@ -596,19 +741,22 @@ export default function Header({
               <div className="flex-1 flex flex-wrap gap-x-12 gap-y-6">
                 {activeCategory.subcategories.map((sub, idx) => (
                   <div key={idx} className="min-w-[150px] max-w-[200px]">
-                    <h4 className="font-bold text-[#222] text-[14px] mb-2.5 cursor-pointer hover:text-[#00a99d] transition-colors leading-[22px]">
+                    <Link
+                      href={`/category/${getCategorySlug(activeCategory)}?sub=${encodeURIComponent(sub.title)}`}
+                      className="font-bold text-[#222] text-[14px] mb-2.5 cursor-pointer hover:text-[#00a99d] transition-colors leading-[22px] block"
+                    >
                       {sub.title}
-                    </h4>
+                    </Link>
                     {sub.items.length > 0 && (
                       <ul className="space-y-1.5 list-none p-0 m-0">
                         {sub.items.map((item, itemIdx) => (
                           <li key={itemIdx}>
-                            <button
-                              type="button"
-                              className="text-[13px] text-[#555] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0 text-left block leading-[20px]"
+                            <Link
+                              href={`/category/${getCategorySlug(activeCategory)}?sub=${encodeURIComponent(sub.title)}&item=${encodeURIComponent(item)}`}
+                              className="text-[13px] text-[#555] hover:text-[#00a99d] transition-colors cursor-pointer p-0 text-left block leading-[20px]"
                             >
                               {item}
-                            </button>
+                            </Link>
                           </li>
                         ))}
                       </ul>
@@ -621,9 +769,10 @@ export default function Header({
               {activeCategory.images.length > 0 && (
                 <div className="w-[390px] shrink-0 grid grid-cols-2 gap-3">
                   {activeCategory.images.map((imgItem, imgIdx) => (
-                    <div
+                    <Link
+                      href={`/category/${getCategorySlug(activeCategory)}?sub=${encodeURIComponent(imgItem.label)}`}
                       key={imgIdx}
-                      className="relative h-[120px] rounded-[3px] overflow-hidden group/card cursor-pointer bg-[#f4f4f4]"
+                      className="relative h-[120px] rounded-[3px] overflow-hidden group/card cursor-pointer bg-[#f4f4f4] block"
                     >
                       <img
                         src={imgItem.image}
@@ -636,7 +785,7 @@ export default function Header({
                       <span className="absolute bottom-0 left-0 right-0 p-2.5 text-white text-[13px] font-semibold text-left drop-shadow-sm select-none">
                         {imgItem.label}
                       </span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -710,9 +859,9 @@ export default function Header({
             </button>
 
             {/* Cart Icon */}
-            <button
-              type="button"
-              className="p-1 text-[#555] bg-transparent border-0 cursor-pointer relative"
+            <Link
+              href="/cart"
+              className="p-1 text-[#555] bg-transparent border-0 cursor-pointer relative flex items-center"
               aria-label="Cart"
             >
               <svg
@@ -729,10 +878,12 @@ export default function Header({
                 <circle cx="18" cy="20" r="1.5" fill="currentColor" />
                 <path d="M2 3h3.5l2.2 11.2a1.5 1.5 0 0 0 1.5 1.2h9.5a1.5 1.5 0 0 0 1.5-1.2L22 6H6" />
               </svg>
-              <span className="absolute -top-1 -right-1 bg-[#00a99d] text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
-                0
-              </span>
-            </button>
+              {(totalCartItems > 0 || (cartCount ?? 0) > 0) && (
+                <span className="absolute -top-1 -right-1 bg-[#00a99d] text-white text-[9px] min-w-3.5 h-3.5 px-0.5 rounded-full flex items-center justify-center font-bold">
+                  {totalCartItems > 0 ? totalCartItems : cartCount}
+                </span>
+              )}
+            </Link>
           </div>
         </div>
 
@@ -822,22 +973,27 @@ export default function Header({
                   <div className="p-3 bg-gray-50 rounded border border-gray-200 my-2">
                     <div className="flex items-center space-x-2.5 mb-2.5 pb-2.5 border-b border-gray-200">
                       <img
-                        src={effectiveUser?.avatar || "/assets/img/admin-avatar.jpg"}
-                        alt="Admin"
+                        src={
+                          effectiveUser?.avatar ||
+                          (isVendor
+                            ? "/assets/img/trendshop-avatar.jpg"
+                            : "/assets/img/admin-avatar.jpg")
+                        }
+                        alt={effectiveUser?.name || (isVendor ? "Trendshop" : "Admin")}
                         className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-black/10"
                       />
                       <div>
                         <div className="text-[14px] font-semibold text-gray-800">
-                          {effectiveUser?.name || "Admin"}
+                          {effectiveUser?.name || (isVendor ? "Trendshop" : "Admin")}
                         </div>
                         <div className="text-[11px] text-gray-500">
-                          Administrator
+                          {isVendor ? "Vendor" : "Administrator"}
                         </div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-1.5">
-                      {adminProfileMenus.map((item) => {
+                      {activeProfileMenus.map((item) => {
                         const Icon = item.icon;
                         if (item.title === "Logout") {
                           return (
@@ -932,15 +1088,17 @@ export default function Header({
               <div className="space-y-1 py-2">
                 {CATEGORIES.map((cat) => {
                   const isExpanded = expandedMobileCategory === cat.id;
+                  const catSlug = getCategorySlug(cat);
                   return (
                     <div key={cat.id} className="border-b border-gray-100 pb-1">
                       <div className="flex items-center justify-between py-2">
-                        <button
-                          type="button"
+                        <Link
+                          href={`/category/${catSlug}`}
+                          onClick={() => setMobileMenuOpen(false)}
                           className="text-left text-[14px] font-medium text-[#333] hover:text-[#00a99d]"
                         >
                           {cat.title}
-                        </button>
+                        </Link>
                         {cat.subcategories.length > 0 && (
                           <button
                             type="button"
@@ -976,19 +1134,27 @@ export default function Header({
                         <div className="pl-4 space-y-2 pb-2">
                           {cat.subcategories.map((sub, sIdx) => (
                             <div key={sIdx}>
-                              <div className="text-[13px] font-semibold text-[#222]">
+                              <Link
+                                href={`/category/${catSlug}?sub=${encodeURIComponent(sub.title)}`}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="text-[13px] font-semibold text-[#222] hover:text-[#00a99d] block"
+                              >
                                 {sub.title}
-                              </div>
-                              <div className="pl-2 space-y-1 mt-1">
-                                {sub.items.map((it, itIdx) => (
-                                  <div
-                                    key={itIdx}
-                                    className="text-[12px] text-[#666]"
-                                  >
-                                    {it}
-                                  </div>
-                                ))}
-                              </div>
+                              </Link>
+                              {sub.items.length > 0 && (
+                                <div className="pl-2 space-y-1 mt-1">
+                                  {sub.items.map((it, itIdx) => (
+                                    <Link
+                                      key={itIdx}
+                                      href={`/category/${catSlug}?sub=${encodeURIComponent(sub.title)}&item=${encodeURIComponent(it)}`}
+                                      onClick={() => setMobileMenuOpen(false)}
+                                      className="text-[12px] text-[#666] hover:text-[#00a99d] block"
+                                    >
+                                      {it}
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

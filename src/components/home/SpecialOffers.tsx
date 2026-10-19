@@ -1,22 +1,79 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-// Mengimpor data produk diskon khusus (SPECIAL_OFFERS) dan daftar banner promosi (PROMO_BANNERS)
+import Link from "next/link";
 import {
-  SPECIAL_OFFERS,
   PROMO_BANNERS,
+  SpecialOfferProduct,
 } from "@/data/specialOffers";
+import { useCart } from "@/context/CartContext";
+import { getProducts } from "@/lib/supabase/products";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 export default function SpecialOffers() {
-  const baseCount = SPECIAL_OFFERS.length;
-  // 3 duplicate sets of products for seamless infinite loop
-  const extendedProducts = [
-    ...SPECIAL_OFFERS,
-    ...SPECIAL_OFFERS,
-    ...SPECIAL_OFFERS,
-  ];
+  const { addToCart } = useCart();
+  const [products, setProducts] = useState<SpecialOfferProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [currentIndex, setCurrentIndex] = useState(baseCount);
+  useEffect(() => {
+    async function loadOffers() {
+      if (isSupabaseConfigured()) {
+        try {
+          let { data } = await getProducts({ isSpecialOffer: true, status: "active", limit: 18 });
+          if (!data || data.length === 0) {
+            const fallback = await getProducts({ status: "active", limit: 18 });
+            data = fallback.data;
+          }
+          if (data && data.length > 0) {
+            const mapped: SpecialOfferProduct[] = data.map((p) => {
+              const sortedImages = p.product_images
+                ? [...p.product_images].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                : [];
+              const primary =
+                sortedImages.find((img) => img.is_primary)?.image_url ||
+                sortedImages[0]?.image_url ||
+                "/images/products/midi-skirt.webp";
+
+              const disc = Number(p.discount_rate) > 0 ? Math.round(Number(p.discount_rate)) : 10;
+              const priceNum = Math.round(Number(p.price));
+              const origNum = Math.round(priceNum / (1 - disc / 100));
+
+              return {
+                id: (p.slug || p.id) as any,
+                title: p.title,
+                badge: `-${disc}%`,
+                image: primary,
+                seller: p.profiles?.username || "Trendshop",
+                rating: Number(p.rating_avg) || 5,
+                wishlist: 0,
+                price: `$${priceNum}`,
+                originalPrice: `$${origNum}`,
+              };
+            });
+            setProducts(mapped);
+            setCurrentIndex(mapped.length);
+          }
+        } catch (e) {
+          console.error("Error loading special offers:", e);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    }
+    loadOffers();
+  }, []);
+
+  const baseCount = products.length;
+  // 3 duplicate sets of products for seamless infinite loop
+  const extendedProducts = products.length > 0 ? [
+    ...products,
+    ...products,
+    ...products,
+  ] : [];
+
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
   const [isMoving, setIsMoving] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -182,7 +239,19 @@ export default function SpecialOffers() {
         </h3>
       </div>
 
-      {/* CAROUSEL CONTAINER */}
+      {loading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 py-2">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-[4px] p-2 animate-pulse space-y-2">
+              <div className="aspect-square bg-gray-100 rounded-[3px]" />
+              <div className="h-3.5 bg-gray-200 rounded w-3/4 mt-2" />
+              <div className="h-3 bg-gray-100 rounded w-1/2" />
+              <div className="h-4 bg-gray-200 rounded w-1/3 mt-2" />
+            </div>
+          ))}
+        </div>
+      ) : products.length === 0 ? null : (
+      /* CAROUSEL CONTAINER */
       <div
         className="relative group/carousel select-none px-1"
         onMouseEnter={() => setIsHovered(true)}
@@ -249,13 +318,23 @@ export default function SpecialOffers() {
                       </span>
                     )}
 
-                    {/* Main Product Image */}
-                    <img
-                      src={product.image}
-                      alt={product.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-105"
-                      draggable={false}
-                    />
+                    {/* Main Product Image Container with Link */}
+                    <Link
+                      href={`/product/${product.id}`}
+                      className="block w-full h-full relative cursor-pointer"
+                      onClick={(e) => {
+                        if (Math.abs(dragOffset) > 5) {
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      <img
+                        src={product.image}
+                        alt={product.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-105"
+                        draggable={false}
+                      />
+                    </Link>
 
                     {/* Floating Quick Action Overlay (Wishlist & Cart) */}
                     <div className="absolute right-2 top-2 flex flex-col space-y-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 z-10">
@@ -278,7 +357,19 @@ export default function SpecialOffers() {
                       <button
                         type="button"
                         aria-label="Add to cart"
-                        className="w-7 h-7 bg-white rounded-full shadow flex items-center justify-center text-[#666] hover:text-[#00a99d] transition-colors border-0 cursor-pointer"
+                        title="Add to cart"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addToCart({
+                            id: product.id,
+                            title: product.title,
+                            price: product.price,
+                            image: product.image,
+                            seller: product.seller,
+                          }, 1);
+                        }}
+                        className="w-7 h-7 bg-white rounded-full shadow flex items-center justify-center text-[#666] hover:text-[#00a99d] transition-colors border-0 cursor-pointer hover:scale-105"
                       >
                         <svg
                           width="14"
@@ -299,10 +390,20 @@ export default function SpecialOffers() {
                   {/* Product Info */}
                   <div className="p-3 flex flex-col flex-1 justify-between bg-white">
                     <div>
-                      {/* Title */}
-                      <h4 className="text-[13px] font-normal text-[#222222] line-clamp-2 h-[38px] leading-[19px] hover:text-[#00a99d] transition-colors cursor-pointer mb-1">
-                        {product.title}
-                      </h4>
+                      {/* Title with Link */}
+                      <Link
+                        href={`/product/${product.id}`}
+                        className="block"
+                        onClick={(e) => {
+                          if (Math.abs(dragOffset) > 5) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        <h4 className="text-[13px] font-normal text-[#222222] line-clamp-2 h-[38px] leading-[19px] hover:text-[#00a99d] transition-colors cursor-pointer mb-1">
+                          {product.title}
+                        </h4>
+                      </Link>
 
                       {/* Seller */}
                       <div className="text-[12px] text-[#7b808a] truncate mb-2">
@@ -372,15 +473,15 @@ export default function SpecialOffers() {
           </svg>
         </button>
       </div>
+      )}
 
-      {/* Section 2 banner iklan promosi sejajar (grid 2 kolom di tablet/desktop) tepat di bawah carousel penawaran spesial */}
+      {/* PROMO BANNERS SECTION (BELOW SPECIAL OFFERS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
         {PROMO_BANNERS.map((banner) => (
           <div
             key={banner.id}
             className="overflow-hidden rounded-[4px] cursor-pointer group/banner shadow-sm"
           >
-            {/* Gambar banner promosi dengan efek sedikit membesar saat di-hover */}
             <img
               src={banner.image}
               alt={banner.alt}
