@@ -1,8 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import VendorDashboardSidebar from "@/components/vendor/dashboard/VendorDashboardSidebar";
 import VendorDashboardNavbar from "@/components/vendor/dashboard/VendorDashboardNavbar";
+import { useAuth } from "@/context/AuthContext";
+
+const VENDOR_USER = {
+  name: "Trendshop",
+  email: "trendshop@gmail.com",
+  role: "vendor" as const,
+  avatar: "/assets/img/trendshop-avatar.jpg",
+  is_vendor: true,
+  wallet_balance: 793.52,
+};
 
 export default function RootDashboardLayout({
   children,
@@ -10,6 +20,19 @@ export default function RootDashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, login } = useAuth();
+
+  useEffect(() => {
+    // In vendor dashboard, ensure vendor role
+    if (user?.role !== "vendor") {
+      const isExplicitLogout =
+        typeof window !== "undefined" &&
+        sessionStorage.getItem("modesy_explicit_logout") === "true";
+      if (!isExplicitLogout) {
+        login(VENDOR_USER);
+      }
+    }
+  }, [user?.role, login]);
 
   return (
     <div className="min-h-screen bg-[#f4f6f9] flex font-sans text-gray-800 overflow-x-hidden">

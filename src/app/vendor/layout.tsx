@@ -23,17 +23,17 @@ export default function VendorLayout({
   const isDashboard = pathname?.startsWith("/vendor/dashboard");
 
   useEffect(() => {
-    // If user is already authenticated as vendor or admin, preserve their active session
-    if (user?.role === "vendor" || user?.role === "admin") {
+    // If user is already authenticated as vendor, preserve their active session
+    if (user?.role === "vendor") {
       return;
     }
 
-    // In demo mode, only fallback if no user is authenticated and has not explicitly logged out
+    // In vendor portal, always ensure vendor session (Trendshop)
     const isExplicitLogout = typeof window !== "undefined" && sessionStorage.getItem("modesy_explicit_logout") === "true";
-    if (!user && !isExplicitLogout) {
+    if (!isExplicitLogout) {
       login(VENDOR_USER);
     }
-  }, [user, login]);
+  }, [user?.role, login]);
 
   // If in dashboard, or storefront vendor pages (which have their own full public layout), let the page handle its layout to avoid duplicate headers
   if (

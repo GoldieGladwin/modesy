@@ -1,5 +1,5 @@
 import React from "react";
-import MarketplaceHome from "@/components/home/MarketplaceHome";
+import MarketplaceHome from "@/components/homepage/MarketplaceHome";
 
 export default function MemberHomePage() {
   return <MarketplaceHome />;

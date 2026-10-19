@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import LoginModal from "@/components/auth/LoginModal";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export interface User {
@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   // Helper to sync user from Supabase session
   const syncSupabaseUser = async (sessionUser: any): Promise<User | null> => {
@@ -120,39 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // 3. Fallback dev mode for /vendor or /dashboard
+    // 3. Check query params for explicit login modal trigger
     if (typeof window !== "undefined") {
-      const isExplicitLogout = sessionStorage.getItem("modesy_explicit_logout") === "true";
-      if (
-        !isExplicitLogout &&
-        (window.location.pathname.startsWith("/vendor") ||
-          window.location.pathname.startsWith("/dashboard"))
-      ) {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        let parsed: User | null = null;
-        try {
-          if (stored) parsed = JSON.parse(stored);
-        } catch (e) {
-          console.error(e);
-        }
-        if (!parsed || parsed.role !== "vendor") {
-          const vendorUser: User = {
-            id: "00000000-0000-0000-0000-000000000002",
-            name: "Trendshop",
-            email: "trendshop@gmail.com",
-            role: "vendor",
-            avatar: "/assets/img/trendshop-avatar.jpg",
-            is_vendor: true,
-          };
-          setUser(vendorUser);
-          try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(vendorUser));
-          } catch (e) {
-            console.error(e);
-          }
-        }
-      }
-
       const params = new URLSearchParams(window.location.search);
       if (params.get("login") === "true" || params.get("action") === "login") {
         setIsLoginModalOpen(true);
@@ -161,6 +131,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, []);
+
+  // 4. Reactive portal-aware role synchronization (ensures /dashboard & /vendor always have vendor role)
+  useEffect(() => {
+    if (!pathname || isSupabaseConfigured()) return;
+    const isExplicitLogout =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem("modesy_explicit_logout") === "true";
+    if (isExplicitLogout) return;
+
+    if (pathname.startsWith("/vendor") || pathname.startsWith("/dashboard")) {
+      if (user?.role !== "vendor") {
+        const vendorUser: User = {
+          id: "00000000-0000-0000-0000-000000000002",
+          name: "Trendshop",
+          email: "trendshop@gmail.com",
+          role: "vendor",
+          avatar: "/assets/img/trendshop-avatar.jpg",
+          is_vendor: true,
+          wallet_balance: 793.52,
+        };
+        setUser(vendorUser);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(vendorUser));
+        } catch (e) {}
+      }
+    } else if (pathname.startsWith("/admin")) {
+      if (user?.role !== "admin") {
+        const adminUser: User = {
+          id: "00000000-0000-0000-0000-000000000001",
+          name: "Admin",
+          email: "admin@gmail.com",
+          role: "admin",
+          avatar: "/assets/img/admin-avatar.jpg",
+          is_vendor: false,
+          wallet_balance: 1250.0,
+        };
+        setUser(adminUser);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
+        } catch (e) {}
+      }
+    } else if (pathname.startsWith("/moderator")) {
+      if (user?.role !== "moderator") {
+        const modUser: User = {
+          id: "00000000-0000-0000-0000-000000000003",
+          name: "Moderator",
+          email: "moderator@gmail.com",
+          role: "moderator",
+          avatar: "/assets/img/admin-avatar.jpg",
+          is_vendor: false,
+          wallet_balance: 150.0,
+        };
+        setUser(modUser);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(modUser));
+        } catch (e) {}
+      }
+    } else if (pathname.startsWith("/member")) {
+      if (user?.role !== "member") {
+        const memberUser: User = {
+          id: "00000000-0000-0000-0000-000000000004",
+          name: "Member",
+          email: "members@gmail.com",
+          role: "member",
+          avatar: "/assets/img/admin-avatar.jpg",
+          is_vendor: false,
+          wallet_balance: 45.0,
+        };
+        setUser(memberUser);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(memberUser));
+        } catch (e) {}
+      }
+    }
+  }, [pathname, user?.role]);
 
   const login = async (
     userData?: Partial<User> & { password?: string }

@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface VendorDashboardSidebarProps {
   isOpen: boolean;
@@ -56,6 +57,14 @@ function VendorDashboardSidebarContent({
   const isDashboardActive =
     pathname === "/vendor/dashboard" || pathname === "/dashboard";
 
+  const { user } = useAuth();
+  const displayName =
+    user?.role === "vendor" && user?.name ? user.name : "Trendshop";
+  const avatarUrl =
+    user?.role === "vendor" && user?.avatar
+      ? user.avatar
+      : "/assets/img/trendshop-avatar.jpg";
+
   return (
     <aside
       className={`fixed top-0 bottom-0 left-0 z-40 w-64 bg-white border-r border-[#ebebeb] flex flex-col h-screen transition-transform duration-300 ease-in-out ${
@@ -81,13 +90,13 @@ function VendorDashboardSidebarContent({
         <div className="p-6 flex flex-col items-center border-b border-[#f4f4f4]">
           <div className="w-[78px] h-[78px] rounded-full overflow-hidden shrink-0 shadow-xs border border-gray-200">
             <img
-              src="/assets/img/trendshop-avatar.jpg"
-              alt="Trendshop"
+              src={avatarUrl}
+              alt={displayName}
               className="w-full h-full object-cover"
             />
           </div>
           <div className="text-[15px] font-bold text-gray-800 mt-3 text-center">
-            Hi, Trendshop
+            Hi, {displayName}
           </div>
         </div>
 

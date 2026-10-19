@@ -1,6 +1,6 @@
 import { SPECIAL_OFFERS } from "./specialOffers";
-import { NEW_ARRIVALS_PRODUCTS } from "@/components/home/NewArrivals";
-import { CLOTHING_PRODUCTS } from "@/components/home/ClothingSection";
+import { NEW_ARRIVALS_PRODUCTS } from "@/components/homepage/NewArrivals";
+import { CLOTHING_PRODUCTS } from "@/components/homepage/ClothingSection";
 import { allProductsData, jewelryProductsData } from "./products";
 import { CATEGORY_PRODUCTS } from "./categoryProducts";
 
