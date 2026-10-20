@@ -24,6 +24,10 @@ import {
   CategoryProduct,
 } from "@/data/categoryProducts";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getProducts } from "@/lib/supabase/products";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 interface CategoryPageViewProps {
   slug: string;
@@ -35,18 +39,36 @@ function CategoryPageContent({
   role = "guest",
 }: CategoryPageViewProps) {
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { formatPrice } = useCurrency();
   const searchParams = useSearchParams();
   const initialSub = searchParams.get("sub");
+  const urlSearch = searchParams.get("search") || searchParams.get("q") || "";
+
+  const isAllProducts = slug === "all" || slug === "products";
 
   // Resolve category details from slug
   const category: CategoryItem = useMemo(() => {
+    if (isAllProducts) {
+      return {
+        id: "all",
+        title: urlSearch ? `Search Results for "${urlSearch}"` : "All Products",
+        slug: "all",
+        link: "/products",
+        icon: "ShoppingBag",
+        subcategories: CATEGORIES.flatMap((c) => c.subcategories || []),
+      } as any;
+    }
     const found = getCategoryBySlug(slug);
     if (found) return found;
     // Default fallback to Clothing if not found
     return CATEGORIES[0];
-  }, [slug]);
+  }, [slug, isAllProducts, urlSearch]);
 
-  const categorySlug = useMemo(() => getCategorySlug(category), [category]);
+  const categorySlug = useMemo(() => {
+    if (isAllProducts) return "all";
+    return getCategorySlug(category);
+  }, [category, isAllProducts]);
 
   // States
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(
@@ -57,10 +79,11 @@ function CategoryPageContent({
   const [isBrandOpen, setIsBrandOpen] = useState(true);
   const [minPrice, setMinPrice] = useState<string>("");
   const [maxPrice, setMaxPrice] = useState<string>("");
-  const [keyword, setKeyword] = useState<string>("");
+  const [keyword, setKeyword] = useState<string>(urlSearch);
   const [sortBy, setSortBy] = useState<string>("most_recent");
-  const [wishlistState, setWishlistState] = useState<{ [key: number]: boolean }>({});
-  const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+  const [hoveredProduct, setHoveredProduct] = useState<string | number | null>(null);
+  const [dbProducts, setDbProducts] = useState<CategoryProduct[] | null>(null);
+  const [isLoadingDb, setIsLoadingDb] = useState<boolean>(false);
 
   // Sync subcategory when URL search param changes
   useEffect(() => {
@@ -68,6 +91,109 @@ function CategoryPageContent({
       setSelectedSubCategory(initialSub);
     }
   }, [initialSub]);
+
+  // Sync keyword when URL search param changes
+  useEffect(() => {
+    if (urlSearch) {
+      setKeyword(urlSearch);
+    }
+  }, [urlSearch]);
+
+  // Fetch category products from Supabase
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchProducts() {
+      if (!isSupabaseConfigured()) return;
+      setIsLoadingDb(true);
+      try {
+        const fetchOptions: any = {
+          status: "active",
+          limit: 100,
+        };
+        if (!isAllProducts && categorySlug && categorySlug !== "all") {
+          fetchOptions.categorySlug = categorySlug;
+        }
+        if (keyword.trim()) {
+          fetchOptions.search = keyword.trim();
+        }
+
+        const { data, error } = await getProducts(fetchOptions);
+
+        if (error || !data || data.length === 0) {
+          if (isMounted) setIsLoadingDb(false);
+          return;
+        }
+
+        const mapped: CategoryProduct[] = data.map((item: any, idx: number) => {
+          const primaryImg =
+            item.product_images?.find((img: any) => img.is_primary)?.image_url ||
+            item.product_images?.[0]?.image_url ||
+            "/images/products/midi-skirt.webp";
+          const secondaryImg =
+            item.product_images?.find((img: any) => !img.is_primary)?.image_url ||
+            item.product_images?.[1]?.image_url;
+
+          const numPrice = Number(item.price) || 0;
+          const origPrice = item.discount_rate
+            ? Math.round(numPrice / (1 - item.discount_rate / 100))
+            : undefined;
+
+          let subCatName = "";
+          if (item.categories?.name) {
+            const directMatch = category.subcategories?.find(
+              (s) => s.title.toLowerCase() === item.categories.name.toLowerCase()
+            );
+            if (directMatch) {
+              subCatName = directMatch.title;
+            } else {
+              const parentSub = category.subcategories?.find((s) =>
+                s.items.some(
+                  (subItem) =>
+                    subItem.toLowerCase() === item.categories.name.toLowerCase()
+                )
+              );
+              subCatName = parentSub ? parentSub.title : item.categories.name;
+            }
+          }
+
+          return {
+            id: item.id || 1000 + idx,
+            title: item.title,
+            seller: item.profiles?.username || "Trendshop",
+            image: primaryImg,
+            secondaryImage: secondaryImg && secondaryImg !== primaryImg ? secondaryImg : undefined,
+            rating: 5,
+            favorites: 0,
+            price: `$${numPrice}`,
+            originalPrice: origPrice ? `$${origPrice}` : undefined,
+            numericPrice: numPrice,
+            isDiscounted: !!item.discount_rate,
+            discountPercent: item.discount_rate ? `-${item.discount_rate}%` : undefined,
+            isFeatured: !!item.is_featured,
+            category: category.title,
+            categorySlug: categorySlug,
+            subCategory: subCatName || category.subcategories?.[0]?.title || "",
+            brand: "Trendshop",
+            sku: item.sku,
+            description: item.description,
+          };
+        });
+
+        if (isMounted && mapped.length > 0) {
+          setDbProducts(mapped);
+        }
+      } catch (err) {
+        console.error("Error fetching Supabase products for category:", err);
+      } finally {
+        if (isMounted) setIsLoadingDb(false);
+      }
+    }
+
+    fetchProducts();
+    return () => {
+      isMounted = false;
+    };
+  }, [categorySlug, category, isAllProducts, keyword]);
 
   // Subcategories from category
   const subCategoryList = useMemo(() => {
@@ -88,21 +214,20 @@ function CategoryPageContent({
     );
   };
 
-  const handleWishlistToggle = (productId: number) => {
-    setWishlistState((prev) => ({
-      ...prev,
-      [productId]: !prev[productId],
-    }));
-  };
-
-  // Get products for this category
+  // Get products for this category (Supabase database first, fallback to static registry)
   const productsForCategory = useMemo(() => {
+    if (dbProducts && dbProducts.length > 0) {
+      return dbProducts;
+    }
+    if (isAllProducts) {
+      return CATEGORY_PRODUCTS;
+    }
     return CATEGORY_PRODUCTS.filter(
       (p) =>
         p.categorySlug === categorySlug ||
         p.category.toLowerCase() === category.title.toLowerCase()
     );
-  }, [categorySlug, category.title]);
+  }, [dbProducts, categorySlug, category.title, isAllProducts]);
 
   // Filtered & sorted products
   const filteredProducts = useMemo(() => {
@@ -163,10 +288,10 @@ function CategoryPageContent({
   ]);
 
   // Role based links
-  const homeHref = role === "guest" ? "/" : `/${role}`;
+  const homeHref = role === "guest" ? "/guest" : `/${role}`;
   const productsHref =
     role === "guest"
-      ? `/category/${categorySlug}`
+      ? `/guest/category/${categorySlug}`
       : `/${role}/category/${categorySlug}`;
 
   return (
@@ -188,22 +313,30 @@ function CategoryPageContent({
             Products
           </Link>
           <span className="text-gray-400">/</span>
-          <span
-            className={`font-semibold cursor-pointer ${
-              selectedSubCategory
-                ? "hover:text-[#00a99d] text-gray-600"
-                : "text-gray-900"
-            }`}
-            onClick={() => setSelectedSubCategory(null)}
-          >
-            {category.title}
-          </span>
-          {selectedSubCategory && (
+          {isAllProducts ? (
+            <span className="font-semibold text-gray-900">
+              {urlSearch ? `Search Results for "${urlSearch}"` : "All Products"}
+            </span>
+          ) : (
             <>
-              <span className="text-gray-400">/</span>
-              <span className="text-gray-900 font-semibold">
-                {selectedSubCategory}
+              <span
+                className={`font-semibold cursor-pointer ${
+                  selectedSubCategory
+                    ? "hover:text-[#00a99d] text-gray-600"
+                    : "text-gray-900"
+                }`}
+                onClick={() => setSelectedSubCategory(null)}
+              >
+                {category.title}
               </span>
+              {selectedSubCategory && (
+                <>
+                  <span className="text-gray-400">/</span>
+                  <span className="text-gray-900 font-semibold">
+                    {selectedSubCategory}
+                  </span>
+                </>
+              )}
             </>
           )}
         </nav>
@@ -394,7 +527,7 @@ function CategoryPageContent({
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filteredProducts.map((product) => {
                   const isHovered = hoveredProduct === product.id;
-                  const isWishlisted = Boolean(wishlistState[product.id]);
+                  const isWishlisted = isInWishlist(product.id);
                   const hasSecondaryImage = Boolean(
                     product.secondaryImage || product.fallbackSecondaryImage
                   );
@@ -421,7 +554,7 @@ function CategoryPageContent({
 
                         {/* Product Image */}
                         <Link
-                          href={`/product/${product.id}`}
+                          href={role === "guest" ? `/guest/product/${product.id}` : `/product/${product.id}`}
                           className="block w-full h-full relative overflow-hidden"
                         >
                           <img
@@ -477,6 +610,28 @@ function CategoryPageContent({
                           >
                             <ShoppingCart className="w-3.5 h-3.5" />
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              toggleWishlist(product.id);
+                            }}
+                            className={`w-7 h-7 rounded-full bg-white border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer ${
+                              isWishlisted
+                                ? "text-rose-500 border-rose-300"
+                                : "text-gray-700 border-gray-200 hover:text-rose-500 hover:border-rose-300"
+                            }`}
+                            title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                            aria-label="Wishlist"
+                          >
+                            <Heart
+                              className={`w-3.5 h-3.5 ${
+                                isWishlisted ? "fill-[#f43f5e] text-[#f43f5e]" : ""
+                              }`}
+                            />
+                          </button>
                         </div>
                       </div>
 
@@ -485,7 +640,7 @@ function CategoryPageContent({
                         <div>
                           {/* Title */}
                           <Link
-                            href={`/product/${product.id}`}
+                            href={role === "guest" ? `/guest/product/${product.id}` : `/product/${product.id}`}
                             className="block"
                           >
                             <h3 className="text-xs sm:text-[13px] font-medium text-gray-800 line-clamp-2 hover:text-[#00a99d] leading-snug transition-colors h-[2.3rem] overflow-hidden">
@@ -524,7 +679,7 @@ function CategoryPageContent({
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleWishlistToggle(product.id);
+                                toggleWishlist(product.id);
                               }}
                               className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-rose-500 transition-colors cursor-pointer bg-transparent border-0 p-0"
                               title={isWishlisted ? "Unlike" : "Like"}
@@ -532,14 +687,14 @@ function CategoryPageContent({
                               <Heart
                                 className={`w-3 h-3 transition-colors ${
                                   isWishlisted || product.favorites > 0
-                                    ? "fill-rose-400 text-rose-400 stroke-none"
+                                    ? "fill-[#f43f5e] text-[#f43f5e] stroke-none"
                                     : "text-gray-300 stroke-[1.5]"
                                 }`}
                               />
                               <span
                                 className={
                                   isWishlisted
-                                    ? "text-rose-500 font-semibold"
+                                    ? "text-[#f43f5e] font-semibold"
                                     : ""
                                 }
                               >
@@ -560,15 +715,15 @@ function CategoryPageContent({
                               product.originalPrice ? (
                               <>
                                 <span className="text-sm font-bold text-[#00a99d]">
-                                  {product.price}
+                                  {formatPrice(product.price)}
                                 </span>
                                 <span className="text-xs text-gray-400 line-through font-normal">
-                                  {product.originalPrice}
+                                  {formatPrice(product.originalPrice)}
                                 </span>
                               </>
                             ) : (
                               <span className="text-sm font-bold text-gray-900">
-                                {product.price}
+                                {formatPrice(product.price)}
                               </span>
                             )}
                           </div>

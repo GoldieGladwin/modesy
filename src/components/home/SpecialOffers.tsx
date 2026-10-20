@@ -7,11 +7,16 @@ import {
   SpecialOfferProduct,
 } from "@/data/specialOffers";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { getProducts } from "@/lib/supabase/products";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { Heart, ShoppingCart } from "lucide-react";
 
 export default function SpecialOffers() {
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { formatPrice } = useCurrency();
   const [products, setProducts] = useState<SpecialOfferProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,8 +43,13 @@ export default function SpecialOffers() {
               const priceNum = Math.round(Number(p.price));
               const origNum = Math.round(priceNum / (1 - disc / 100));
 
+              // Extract canonical numeric ID from slug ending or numeric id
+              const match = p.slug?.match(/-(\d+)$/);
+              const canonicalId = match ? parseInt(match[1], 10) : (typeof p.id === "number" ? p.id : 1);
+
               return {
-                id: (p.slug || p.id) as any,
+                id: canonicalId,
+                slug: p.slug || String(canonicalId),
                 title: p.title,
                 badge: `-${disc}%`,
                 image: primary,
@@ -104,6 +114,8 @@ export default function SpecialOffers() {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef<number | null>(null);
+  const hasDraggedRef = useRef(false);
+  const dragDistanceRef = useRef(0);
 
   // Slide navigation
   const handleNext = () => {
@@ -122,51 +134,89 @@ export default function SpecialOffers() {
 
   // Drag & Swipe navigation (Fungsi Geser)
   const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
+    if (e.button !== 0) return;
     startXRef.current = e.clientX;
+    hasDraggedRef.current = false;
+    dragDistanceRef.current = 0;
     setDragOffset(0);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || startXRef.current === null) return;
+    if (startXRef.current === null) return;
     const currentX = e.clientX;
-    setDragOffset(currentX - startXRef.current);
+    const diff = currentX - startXRef.current;
+    dragDistanceRef.current = Math.abs(diff);
+
+    // Only activate drag visuals if moved more than 12px
+    if (Math.abs(diff) > 12) {
+      hasDraggedRef.current = true;
+      setIsDragging(true);
+      setDragOffset(diff);
+    }
   };
 
   const handleMouseUp = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (dragOffset > 40) {
-      handlePrev();
-    } else if (dragOffset < -40) {
-      handleNext();
+    if (startXRef.current === null) return;
+    const offset = dragOffset;
+
+    if (hasDraggedRef.current) {
+      if (offset > 40) {
+        handlePrev();
+      } else if (offset < -40) {
+        handleNext();
+      }
     }
+
+    setIsDragging(false);
     setDragOffset(0);
     startXRef.current = null;
+    dragDistanceRef.current = 0;
+
+    setTimeout(() => {
+      hasDraggedRef.current = false;
+    }, 120);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setIsDragging(true);
     startXRef.current = e.touches[0].clientX;
+    hasDraggedRef.current = false;
+    dragDistanceRef.current = 0;
     setDragOffset(0);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || startXRef.current === null) return;
+    if (startXRef.current === null) return;
     const currentX = e.touches[0].clientX;
-    setDragOffset(currentX - startXRef.current);
+    const diff = currentX - startXRef.current;
+    dragDistanceRef.current = Math.abs(diff);
+
+    if (Math.abs(diff) > 12) {
+      hasDraggedRef.current = true;
+      setIsDragging(true);
+      setDragOffset(diff);
+    }
   };
 
   const handleTouchEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (dragOffset > 40) {
-      handlePrev();
-    } else if (dragOffset < -40) {
-      handleNext();
+    if (startXRef.current === null) return;
+    const offset = dragOffset;
+
+    if (hasDraggedRef.current) {
+      if (offset > 40) {
+        handlePrev();
+      } else if (offset < -40) {
+        handleNext();
+      }
     }
+
+    setIsDragging(false);
     setDragOffset(0);
     startXRef.current = null;
+    dragDistanceRef.current = 0;
+
+    setTimeout(() => {
+      hasDraggedRef.current = false;
+    }, 120);
   };
 
   // Reset position seamlessly when reaching boundary
@@ -320,10 +370,10 @@ export default function SpecialOffers() {
 
                     {/* Main Product Image Container with Link */}
                     <Link
-                      href={`/product/${product.id}`}
+                      href={`/product/${product.slug || product.id}`}
                       className="block w-full h-full relative cursor-pointer"
                       onClick={(e) => {
-                        if (Math.abs(dragOffset) > 5) {
+                        if (hasDraggedRef.current) {
                           e.preventDefault();
                         }
                       }}
@@ -336,53 +386,61 @@ export default function SpecialOffers() {
                       />
                     </Link>
 
-                    {/* Floating Quick Action Overlay (Wishlist & Cart) */}
-                    <div className="absolute right-2 top-2 flex flex-col space-y-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 z-10">
+                    {/* Floating Quick Action Overlay (Cart & Wishlist) */}
+                    <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5 opacity-0 group-hover/card:opacity-100 transition-all duration-300">
+                      {/* Add to Wishlist button */}
                       <button
                         type="button"
-                        aria-label="Wishlist"
-                        className="w-7 h-7 bg-white rounded-full shadow flex items-center justify-center text-[#666] hover:text-[#00a99d] transition-colors border-0 cursor-pointer"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => e.stopPropagation()}
+                        aria-label={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
+                        title={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          await toggleWishlist(product.id);
+                        }}
+                        className={`w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer ${
+                          isInWishlist(product.id)
+                            ? "text-rose-500 border-rose-300"
+                            : "text-gray-700 hover:text-rose-500 hover:border-rose-300"
+                        }`}
                       >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                        </svg>
+                        <Heart
+                          className={`w-3.5 h-3.5 transition-colors ${
+                            isInWishlist(product.id) ? "fill-rose-500 text-rose-500" : ""
+                          }`}
+                        />
                       </button>
+
+                      {/* Add to Cart button */}
                       <button
                         type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => e.stopPropagation()}
                         aria-label="Add to cart"
                         title="Add to cart"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          addToCart({
-                            id: product.id,
-                            title: product.title,
-                            price: product.price,
-                            image: product.image,
-                            seller: product.seller,
-                          }, 1);
+                          addToCart(
+                            {
+                              id: String(product.id),
+                              title: product.title,
+                              price: product.price,
+                              image: product.image,
+                              seller: product.seller,
+                            },
+                            1
+                          );
                         }}
-                        className="w-7 h-7 bg-white rounded-full shadow flex items-center justify-center text-[#666] hover:text-[#00a99d] transition-colors border-0 cursor-pointer hover:scale-105"
+                        className="w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:text-[#00a99d] hover:border-[#00a99d] hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
                       >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                          <line x1="3" y1="6" x2="21" y2="6" />
-                          <path d="M16 10a4 4 0 0 1-8 0" />
-                        </svg>
+                        <ShoppingCart className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -392,10 +450,10 @@ export default function SpecialOffers() {
                     <div>
                       {/* Title with Link */}
                       <Link
-                        href={`/product/${product.id}`}
+                        href={`/product/${product.slug || product.id}`}
                         className="block"
                         onClick={(e) => {
-                          if (Math.abs(dragOffset) > 5) {
+                          if (hasDraggedRef.current) {
                             e.preventDefault();
                           }
                         }}
@@ -414,33 +472,45 @@ export default function SpecialOffers() {
                     </div>
 
                     <div>
-                      {/* Rating & Likes */}
+                      {/* Rating & Likes (Bagian Depan Kartu) */}
                       <div className="flex items-center justify-between text-[12px] mb-2">
                         {renderStars(product.rating)}
-                        <span className="text-[#888] flex items-center text-[11px]">
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            className="mr-1"
-                          >
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                          </svg>
-                          {product.wishlist}
-                        </span>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onMouseUp={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onTouchEnd={(e) => e.stopPropagation()}
+                          aria-label={isInWishlist(product.id) ? "Unlike" : "Like"}
+                          title={isInWishlist(product.id) ? "Unlike" : "Like"}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            await toggleWishlist(product.id);
+                          }}
+                          className="flex items-center text-[11px] text-[#888] hover:text-rose-500 transition-colors cursor-pointer bg-transparent border-0 p-0"
+                        >
+                          <Heart
+                            className={`w-3 h-3 mr-1 transition-colors ${
+                              isInWishlist(product.id)
+                                ? "fill-rose-500 text-rose-500 stroke-none"
+                                : "text-gray-400 stroke-[1.5]"
+                            }`}
+                          />
+                          <span className={isInWishlist(product.id) ? "text-rose-500 font-semibold" : ""}>
+                            {product.wishlist + (isInWishlist(product.id) ? 1 : 0)}
+                          </span>
+                        </button>
                       </div>
 
                       {/* Price */}
                       <div className="flex items-center space-x-2">
                         <span className="text-[15px] font-bold text-[#00a99d] leading-none">
-                          {product.price}
+                          {formatPrice(product.price)}
                         </span>
                         {product.originalPrice && (
                           <span className="text-[13px] text-[#868e96] line-through leading-none">
-                            {product.originalPrice}
+                            {formatPrice(product.originalPrice)}
                           </span>
                         )}
                       </div>
@@ -477,19 +547,26 @@ export default function SpecialOffers() {
 
       {/* PROMO BANNERS SECTION (BELOW SPECIAL OFFERS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        {PROMO_BANNERS.map((banner) => (
-          <div
-            key={banner.id}
-            className="overflow-hidden rounded-[4px] cursor-pointer group/banner shadow-sm"
-          >
-            <img
-              src={banner.image}
-              alt={banner.alt}
-              className="w-full h-auto object-cover transition-transform duration-300 group-hover/banner:scale-[1.01]"
-              draggable={false}
-            />
-          </div>
-        ))}
+        {PROMO_BANNERS.map((banner, idx) => {
+          const bannerLink =
+            idx === 0
+              ? "/category/clothing?sub=Women's%20Clothing"
+              : "/category/jewelry-accessories?sub=Bags%20%26%20Purses";
+          return (
+            <Link
+              key={banner.id}
+              href={bannerLink}
+              className="overflow-hidden rounded-[4px] cursor-pointer group/banner shadow-sm block relative hover:opacity-95 transition-opacity"
+            >
+              <img
+                src={banner.image}
+                alt={banner.alt}
+                className="w-full h-auto object-cover transition-transform duration-300 group-hover/banner:scale-[1.01]"
+                draggable={false}
+              />
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

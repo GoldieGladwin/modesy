@@ -1,6 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { useAuth } from "./AuthContext";
+import { useCurrency } from "./CurrencyContext";
+import { getStorageScope } from "@/lib/storageScope";
 
 export interface CartProductInput {
   id: string | number;
@@ -49,8 +53,6 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_STORAGE_KEY = "modesy_cart_items";
-
 export function parsePrice(val: string | number | undefined): number {
   if (typeof val === "number") return val;
   if (!val) return 0;
@@ -68,42 +70,80 @@ export function formatPrice(num: number): string {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const { formatPrice: formatCurrencyPrice, currency } = useCurrency();
+  const pathname = usePathname();
+  const scope = getStorageScope(user, pathname);
+  const storageKey = `modesy_cart_${scope}`;
+
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isAddedModalOpen, setIsAddedModalOpen] = useState(false);
   const [lastAddedItem, setLastAddedItem] = useState<AddedToCartSummary | null>(null);
+  const currentLoadedKeyRef = useRef<string | null>(null);
 
-  // Load cart from localStorage on client mount
+  // Load cart from localStorage when storageKey changes
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(CART_STORAGE_KEY);
+      // Legacy global un-scoped key migration
+      const legacy = localStorage.getItem("modesy_cart_items");
+      if (legacy !== null) {
+        if (localStorage.getItem("modesy_cart_guest") === null) {
+          localStorage.setItem("modesy_cart_guest", legacy);
+        }
+        localStorage.removeItem("modesy_cart_items");
+      }
+
+      const stored = localStorage.getItem(storageKey);
       if (stored) {
-        setCartItems(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCartItems(parsed);
+        } else {
+          setCartItems([]);
+        }
+      } else {
+        setCartItems([]);
       }
     } catch (e) {
       console.error("Failed to load cart from localStorage", e);
+      setCartItems([]);
     } finally {
+      currentLoadedKeyRef.current = storageKey;
       setIsLoaded(true);
     }
-  }, []);
+  }, [storageKey]);
 
-  // Save cart to localStorage on changes
+  // Save cart to localStorage on changes, guarded by currentLoadedKeyRef
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || currentLoadedKeyRef.current !== storageKey) return;
     try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+      localStorage.setItem(storageKey, JSON.stringify(cartItems));
     } catch (e) {
       console.error("Failed to save cart to localStorage", e);
     }
-  }, [cartItems, isLoaded]);
+  }, [cartItems, isLoaded, storageKey]);
+
+  // Cross-tab synchronization
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === storageKey) {
+        try {
+          setCartItems(e.newValue ? JSON.parse(e.newValue) : []);
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [storageKey]);
 
   const addToCart = (product: CartProductInput, quantity = 1) => {
     const qty = Math.max(1, quantity || 1);
     const numPrice = parsePrice(product.price);
     const isQuote = typeof product.price === "string" && product.price.toLowerCase().includes("quote");
 
-    const formattedUnit = isQuote ? "Request a Quote" : formatPrice(numPrice);
-    const subtotal = isQuote ? "Request a Quote" : formatPrice(numPrice * qty);
+    const formattedUnit = isQuote ? "Request a Quote" : formatCurrencyPrice(numPrice);
+    const subtotal = isQuote ? "Request a Quote" : formatCurrencyPrice(numPrice * qty);
 
     setCartItems((prevItems) => {
       const existingIdx = prevItems.findIndex(
@@ -177,7 +217,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     (acc, item) => acc + item.numericPrice * item.quantity,
     0
   );
-  const formattedTotalPrice = formatPrice(totalCartPrice);
+  const formattedTotalPrice = formatCurrencyPrice(totalCartPrice);
 
   return (
     <CartContext.Provider

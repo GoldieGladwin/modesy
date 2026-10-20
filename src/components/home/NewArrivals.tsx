@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Star, Heart, ShoppingBag, ArrowRight } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { getProducts } from "@/lib/supabase/products";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 
@@ -238,9 +240,10 @@ export const PROMO_BANNERS = [
 
 export default function NewArrivals() {
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist: toggleWishlistGlobal } = useWishlist();
+  const { formatPrice } = useCurrency();
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [wishlistState, setWishlistState] = useState<{ [key: string | number]: boolean }>({});
 
   useEffect(() => {
     async function loadNewArrivals() {
@@ -293,12 +296,10 @@ export default function NewArrivals() {
     loadNewArrivals();
   }, []);
 
-  const toggleWishlist = (id: string | number, e: React.MouseEvent) => {
+  const toggleWishlist = async (id: string | number, e: React.MouseEvent) => {
     e.preventDefault();
-    setWishlistState((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    e.stopPropagation();
+    await toggleWishlistGlobal(id);
   };
 
   return (
@@ -337,7 +338,7 @@ export default function NewArrivals() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-5 lg:gap-6">
             {products.map((product) => {
-              const isLiked = wishlistState[product.id] ?? false;
+              const isLiked = isInWishlist(product.id);
 
               return (
                 <div
@@ -458,10 +459,22 @@ export default function NewArrivals() {
                       </div>
 
                       {/* Jumlah Likes / Hati */}
-                      <div className="flex items-center gap-1 text-gray-400 font-medium">
-                        <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
-                        <span>{(Number(product.likes) || 0) + (isLiked ? 1 : 0)}</span>
-                      </div>
+                      <button
+                        type="button"
+                        aria-label={isLiked ? "Unlike" : "Like"}
+                        title={isLiked ? "Unlike" : "Like"}
+                        onClick={(e) => toggleWishlist(product.id, e)}
+                        className="flex items-center gap-1 text-gray-400 hover:text-rose-500 font-medium cursor-pointer bg-transparent border-0 p-0 transition-colors"
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${
+                            isLiked ? "fill-rose-500 text-rose-500" : "text-gray-400"
+                          }`}
+                        />
+                        <span className={isLiked ? "text-rose-500 font-semibold" : ""}>
+                          {(Number(product.likes) || 0) + (isLiked ? 1 : 0)}
+                        </span>
+                      </button>
                     </div>
                   </div>
 
@@ -480,11 +493,11 @@ export default function NewArrivals() {
                               : "text-gray-900"
                           }`}
                         >
-                          ${product.price}
+                          {formatPrice(product.price)}
                         </span>
                         {product.oldPrice && (
                           <del className="text-xs sm:text-sm text-gray-400 font-medium line-through">
-                            ${product.oldPrice}
+                            {formatPrice(product.oldPrice)}
                           </del>
                         )}
                       </div>

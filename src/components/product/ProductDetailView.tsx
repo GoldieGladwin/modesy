@@ -26,7 +26,9 @@ import ModesyHeader from "@/components/layout/guest/ModesyHeader";
 import ModesyFooter from "@/components/layout/guest/ModesyFooter";
 import LoginModal from "@/components/auth/LoginModal";
 import { useAuth } from "@/context/AuthContext";
-import { toggleWishlist, getLocalWishlistIds } from "@/lib/supabase/wishlist";
+import { useWishlist } from "@/context/WishlistContext";
+import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import {
   getProductReviews,
   addProductReview,
@@ -116,8 +118,11 @@ export default function ProductDetailView({
   }, [productId]);
 
   const { user } = useAuth();
+  const { isInWishlist, toggleWishlist: contextToggleWishlist } = useWishlist();
+  const { addToCart } = useCart();
+  const { formatPrice } = useCurrency();
+  const isWishlisted = isInWishlist(product.id);
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const initialTabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<
     "description" | "additional" | "shipping" | "reviews" | "comments"
@@ -197,8 +202,6 @@ export default function ProductDetailView({
       if (isMounted) setCommentsList(cmts);
     });
 
-    setIsWishlisted(getLocalWishlistIds().includes(String(product.id)));
-
     if (product.sizes && product.sizes.length > 0) {
       if (initialSkuParam) {
         const foundSize = product.sizes.find((s) => initialSkuParam.endsWith(`-${s}`));
@@ -261,14 +264,24 @@ export default function ProductDetailView({
   };
 
   const handleAddToCart = () => {
+    addToCart(
+      {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        image: product.image,
+        seller: product.seller,
+        sku: currentSku || product.sku,
+      },
+      quantity
+    );
     triggerToast(`Added ${quantity} "${product.title}" to Cart!`);
   };
 
   const handleToggleWishlist = async () => {
-    const res = await toggleWishlist(product.id, user?.id);
-    setIsWishlisted(res.isWishlisted);
+    const nextWishlisted = await contextToggleWishlist(product.id);
     triggerToast(
-      res.isWishlisted ? "Added to wishlist!" : "Removed from wishlist!"
+      nextWishlisted ? "Added to wishlist!" : "Removed from wishlist!"
     );
   };
 
@@ -319,14 +332,8 @@ export default function ProductDetailView({
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex flex-col font-sans text-gray-800 antialiased">
-      {/* Header (Logged in as Trendshop matching Screenshot) */}
+      {/* Header (Dynamic based on active auth state) */}
       <ModesyHeader
-        currentUser={{
-          name: "Trendshop",
-          email: "trendshop@gmail.com",
-          avatar: "/assets/img/trendshop-avatar.jpg",
-          role: "vendor",
-        }}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
       />
 
@@ -490,11 +497,11 @@ export default function ProductDetailView({
                   ) : (
                     <>
                       <span className="text-[26px] sm:text-[28px] font-bold text-[#00a99d]">
-                        {product.price}
+                        {formatPrice(product.price)}
                       </span>
                       {product.originalPrice && (
                         <span className="text-base text-gray-400 line-through">
-                          {product.originalPrice}
+                          {formatPrice(product.originalPrice)}
                         </span>
                       )}
                       {product.discountPercent && (
@@ -1270,6 +1277,14 @@ export default function ProductDetailView({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          addToCart({
+                            id: p.id,
+                            title: p.title,
+                            price: p.price,
+                            image: p.image,
+                            seller: p.seller,
+                            sku: p.sku,
+                          });
                           triggerToast(`Added "${p.title}" to cart!`);
                         }}
                         className="w-7 h-7 rounded-full bg-white/95 hover:bg-white text-gray-600 hover:text-[#00a99d] shadow-sm flex items-center justify-center transition-transform hover:scale-110 cursor-pointer"
@@ -1279,14 +1294,23 @@ export default function ProductDetailView({
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          triggerToast(`Added "${p.title}" to wishlist!`);
+                          const nextWishlisted = await contextToggleWishlist(p.id);
+                          triggerToast(
+                            nextWishlisted
+                              ? `Added "${p.title}" to wishlist!`
+                              : `Removed "${p.title}" from wishlist!`
+                          );
                         }}
                         className="w-7 h-7 rounded-full bg-white/95 hover:bg-white text-gray-600 hover:text-red-500 shadow-sm flex items-center justify-center transition-transform hover:scale-110 cursor-pointer"
                         title="Add to Wishlist"
                       >
-                        <Heart className="w-3.5 h-3.5" />
+                        <Heart
+                          className={`w-3.5 h-3.5 ${
+                            isInWishlist(p.id) ? "fill-red-500 text-red-500" : ""
+                          }`}
+                        />
                       </button>
                     </div>
                   </div>

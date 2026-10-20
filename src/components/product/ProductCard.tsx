@@ -2,15 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Star, Heart, ShoppingCart } from "lucide-react";
 import { Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import {
-  toggleWishlist,
-  getLocalWishlistIds,
-  WISHLIST_CHANGE_EVENT,
-} from "@/lib/supabase/wishlist";
+import { useWishlist } from "@/context/WishlistContext";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface ProductCardProps {
   product: Product;
@@ -19,23 +17,14 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const { user } = useAuth();
   const { addToCart } = useCart();
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { formatPrice } = useCurrency();
+  const isWishlisted = isInWishlist(product.id);
   const [isImageHovered, setIsImageHovered] = useState(false);
   const hasMultipleImages = Boolean(product.secondaryImage);
-
-  useEffect(() => {
-    setIsWishlisted(getLocalWishlistIds().includes(String(product.id)));
-
-    const handleWishlistChange = (e: any) => {
-      const ids: string[] = e.detail || [];
-      setIsWishlisted(ids.includes(String(product.id)));
-    };
-
-    window.addEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
-    return () => {
-      window.removeEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
-    };
-  }, [product.id]);
+  const pathname = usePathname();
+  const isGuest = pathname?.startsWith("/guest");
+  const productUrl = isGuest ? `/guest/product/${product.id}` : `/product/${product.id}`;
 
   return (
     <div className="relative bg-white border border-gray-200 rounded-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow duration-300 h-full">
@@ -53,7 +42,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         )}
 
         {/* Product Image Container with Hardware-Accelerated Smooth Cross-fade */}
-        <Link href={`/product/${product.id}`} className="block w-full h-full relative overflow-hidden">
+        <Link href={productUrl} className="block w-full h-full relative overflow-hidden">
           {/* Primary Image */}
           <img
             src={product.image}
@@ -116,12 +105,15 @@ export default function ProductCard({ product }: ProductCardProps) {
             onClick={async (e) => {
               e.preventDefault();
               e.stopPropagation();
-              const res = await toggleWishlist(product.id, user?.id);
-              setIsWishlisted(res.isWishlisted);
+              await toggleWishlist(product.id);
             }}
-            className="w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:text-rose-500 hover:border-rose-300 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
-            title="Add to wishlist"
-            aria-label="Add to wishlist"
+            className={`w-8 h-8 rounded-full bg-white border shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer ${
+              isWishlisted
+                ? "text-rose-500 border-rose-300"
+                : "text-gray-700 border-gray-200 hover:text-rose-500 hover:border-rose-300"
+            }`}
+            title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
           >
             <Heart
               className={`w-3.5 h-3.5 transition-colors duration-200 ${
@@ -136,7 +128,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="p-3 flex-1 flex flex-col justify-between">
         <div>
           {/* Product Title */}
-          <Link href={`/product/${product.id}`} className="block">
+          <Link href={productUrl} className="block">
             <h3 className="text-xs sm:text-[13px] font-medium text-gray-800 line-clamp-2 hover:text-[#1963d8] leading-snug transition-colors h-[2.3rem] overflow-hidden">
               {product.title}
             </h3>
@@ -171,21 +163,20 @@ export default function ProductCard({ product }: ProductCardProps) {
               onClick={async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const res = await toggleWishlist(product.id, user?.id);
-                setIsWishlisted(res.isWishlisted);
+                await toggleWishlist(product.id);
               }}
               className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-rose-500 transition-colors cursor-pointer bg-transparent border-0 p-0"
               title={isWishlisted ? "Unlike" : "Like"}
             >
               <Heart
                 className={`w-3 h-3 transition-colors ${
-                  isWishlisted || product.favorites > 0
-                    ? "fill-rose-400 text-rose-400 stroke-none"
+                  isWishlisted
+                    ? "fill-rose-500 text-rose-500 stroke-none"
                     : "text-gray-300 stroke-[1.5]"
                 }`}
               />
               <span className={isWishlisted ? "text-rose-500 font-semibold" : ""}>
-                {isWishlisted ? product.favorites + 1 : product.favorites}
+                {product.favorites + (isWishlisted ? 1 : 0)}
               </span>
             </button>
           </div>
@@ -199,15 +190,15 @@ export default function ProductCard({ product }: ProductCardProps) {
             ) : product.isDiscounted && product.originalPrice ? (
               <>
                 <span className="text-sm font-bold text-[#00a99d]">
-                  {product.price}
+                  {formatPrice(product.price)}
                 </span>
                 <span className="text-xs text-gray-400 line-through font-normal">
-                  {product.originalPrice}
+                  {formatPrice(product.originalPrice)}
                 </span>
               </>
             ) : (
               <span className="text-sm font-bold text-gray-900">
-                {product.price}
+                {formatPrice(product.price)}
               </span>
             )}
           </div>

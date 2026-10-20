@@ -18,9 +18,9 @@ export default function AdminLoginPage() {
   // If already authenticated as admin or moderator, automatically redirect to admin panel
   useEffect(() => {
     if (user?.role === "admin") {
-      router.push("/admin/admin-panel");
+      router.push("/admin");
     } else if (user?.role === "moderator") {
-      router.push("/moderator/admin-panel");
+      router.push("/moderator");
     }
   }, [user, router]);
 
@@ -49,10 +49,13 @@ export default function AdminLoginPage() {
         return;
       }
 
-      if (isModerator) {
-        router.push("/moderator/admin-panel");
+      const role = res?.user?.role || (isModerator ? "moderator" : "admin");
+      if (role === "admin") {
+        router.push("/admin");
+      } else if (role === "moderator") {
+        router.push("/moderator");
       } else {
-        router.push("/admin/admin-panel");
+        router.push("/admin");
       }
     } catch (err: any) {
       setError(err?.message || "Login failed.");

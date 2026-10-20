@@ -17,6 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface VendorDashboardNavbarProps {
   onToggleSidebar: () => void;
@@ -28,17 +29,10 @@ export default function VendorDashboardNavbar({
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-
-  const displayName =
-    user?.role === "vendor" && user?.name ? user.name : "Trendshop";
-  const avatarUrl =
-    user?.role === "vendor" && user?.avatar
-      ? user.avatar
-      : "/assets/img/trendshop-avatar.jpg";
+  const { language, setLanguage, languages } = useLanguage();
 
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("English");
 
   const profileRef = useRef<HTMLDivElement>(null);
   const langRef = useRef<HTMLDivElement>(null);
@@ -54,7 +48,7 @@ export default function VendorDashboardNavbar({
     },
     {
       title: "Profile",
-      href: "/profile/trendshop",
+      href: "/profile/daniel-jones",
       icon: User,
       match: (path: string) =>
         path.startsWith("/profile") || path.startsWith("/vendor/profile"),
@@ -154,45 +148,37 @@ export default function VendorDashboardNavbar({
             className="flex items-center gap-1.5 text-gray-700 hover:text-gray-900 cursor-pointer"
           >
             <img
-              src="/assets/img/flag_eng.jpg"
-              alt="English"
+              src={language.flag}
+              alt={language.name}
               className="w-[18px] h-auto border border-gray-200"
             />
-            <span className="font-normal text-xs">{selectedLanguage}</span>
+            <span className="font-normal text-xs">{language.name}</span>
             <ChevronDown className="w-3 h-3 text-gray-400" />
           </button>
           {langDropdownOpen && (
             <div className="absolute right-0 top-full mt-2 w-32 bg-white border border-[#ebebeb] rounded shadow-md z-50 py-1 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedLanguage("English");
-                  setLangDropdownOpen(false);
-                }}
-                className="w-full text-left px-3 py-1.5 text-[#00a99d] font-semibold hover:bg-gray-50 flex items-center gap-2"
-              >
-                <img
-                  src="/assets/img/flag_eng.jpg"
-                  alt="English"
-                  className="w-4 h-auto"
-                />
-                <span>English</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedLanguage("Arabic");
-                  setLangDropdownOpen(false);
-                }}
-                className="w-full text-left px-3 py-1.5 text-gray-600 hover:bg-gray-50 flex items-center gap-2"
-              >
-                <img
-                  src="/assets/img/flag_ar.png"
-                  alt="Arabic"
-                  className="w-4 h-auto"
-                />
-                <span>Arabic</span>
-              </button>
+              {languages.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => {
+                    setLanguage(lang.code);
+                    setLangDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2 cursor-pointer ${
+                    language.code === lang.code
+                      ? "text-[#00a99d] font-semibold"
+                      : "text-gray-600"
+                  }`}
+                >
+                  <img
+                    src={lang.flag}
+                    alt={lang.name}
+                    className="w-4 h-auto border border-gray-200"
+                  />
+                  <span>{lang.name}</span>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -206,14 +192,14 @@ export default function VendorDashboardNavbar({
           >
             <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 border border-gray-200">
               <img
-                src={avatarUrl}
-                alt={displayName}
+                src={user?.avatar || "/assets/img/trendshop-avatar.jpg"}
+                alt={user?.name || "Trendshop"}
                 className="w-full h-full object-cover"
               />
             </div>
 
             <span className="font-medium text-xs text-gray-700 hidden sm:inline">
-              {displayName}
+              {user?.name || "Trendshop"}
             </span>
             <ChevronDown className="w-3 h-3 text-gray-400" />
           </button>

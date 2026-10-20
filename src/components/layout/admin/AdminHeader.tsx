@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CATEGORIES, CategoryItem, getCategorySlug } from "@/data/categories";
 import LocationModal from "@/components/modals/LocationModal";
 import { useAuth } from "@/context/AuthContext";
@@ -19,17 +19,30 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function AdminHeader() {
   const { totalCartItems } = useCart();
+  const { totalWishlistItems } = useWishlist();
+  const { currency, setCurrencyCode, currencies } = useCurrency();
+  const { language, setLanguage, languages, t } = useLanguage();
+  const router = useRouter();
   const pathname = usePathname();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = searchQuery.trim();
+    if (trimmed) {
+      router.push(`/products?search=${encodeURIComponent(trimmed)}`);
+    } else {
+      router.push("/products");
+    }
+  };
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState("USD ($)");
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState({
-    name: "English",
-    flag: "/assets/img/flag_eng.jpg",
-  });
   const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -51,24 +64,7 @@ export default function AdminHeader() {
   const languageRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
 
-  const currencies = [
-    "USD ($)",
-    "EUR (€)",
-    "BRL (R$)",
-    "GBP (£)",
-    "IDR (Rp)",
-    "INR (₹)",
-    "NGN (₦)",
-    "RUB (₽)",
-    "TRY (₺)",
-  ];
-
-  const languages = [
-    { name: "English", flag: "/assets/img/flag_eng.jpg" },
-    { name: "Arabic", flag: "/assets/img/flag_ar.png" },
-  ];
-
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   // Daftar menu dropdown profil admin sesuai urutan
   const adminProfileMenus = [
@@ -179,13 +175,13 @@ export default function AdminHeader() {
               href="/guest/contact"
               className="text-[#666666] hover:text-[#00a99d] transition-colors cursor-pointer text-[14px]"
             >
-              Contact
+              {t("Contact")}
             </Link>
             <Link
               href="/admin/dashboard"
               className="text-[#666666] hover:text-[#00a99d] transition-colors cursor-pointer text-[14px]"
             >
-              Sell on Modesy
+              {t("Sell on Modesy")}
             </Link>
           </div>
 
@@ -208,7 +204,7 @@ export default function AdminHeader() {
                 >
                   <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
                 </svg>
-                <span className="max-w-[260px] truncate">{currentLocation}</span>
+                <span className="max-w-[260px] truncate">{currentLocation === "Location" ? t("Location") : currentLocation}</span>
               </button>
 
               {currentLocation !== "Location" && (
@@ -216,9 +212,9 @@ export default function AdminHeader() {
                   type="button"
                   onClick={() => setCurrentLocation("Location")}
                   className="ml-2 inline-flex items-center bg-[#e3e3e7] hover:bg-[#d6d6da] text-[#515660] text-[12px] px-2 py-[2px] rounded-[3px] border-0 cursor-pointer transition-colors"
-                  title="Reset Location"
+                  title={t("Reset")}
                 >
-                  Reset
+                  {t("Reset")}
                 </button>
               )}
             </div>
@@ -230,7 +226,7 @@ export default function AdminHeader() {
                 onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
                 className="flex items-center text-[#666666] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0 text-[14px]"
               >
-                <span>{selectedCurrency}</span>
+                <span>{currency.code} ({currency.symbol})</span>
                 <svg
                   width="10"
                   height="6"
@@ -252,19 +248,19 @@ export default function AdminHeader() {
                 <div className="absolute right-0 top-full mt-2 w-32 bg-white border border-[#ebebeb] rounded shadow-md z-50 py-1">
                   {currencies.map((curr) => (
                     <button
-                      key={curr}
+                      key={curr.code}
                       type="button"
                       onClick={() => {
-                        setSelectedCurrency(curr);
+                        setCurrencyCode(curr.code);
                         setCurrencyDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3 py-1.5 text-[13px] hover:bg-gray-100 transition-colors ${
-                        selectedCurrency === curr
+                        currency.code === curr.code
                           ? "text-[#00a99d] font-semibold"
                           : "text-[#555]"
                       }`}
                     >
-                      {curr}
+                      {curr.code} ({curr.symbol})
                     </button>
                   ))}
                 </div>
@@ -279,11 +275,11 @@ export default function AdminHeader() {
                 className="flex items-center text-[#666666] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0 text-[14px]"
               >
                 <img
-                  src={selectedLanguage.flag}
-                  alt={selectedLanguage.name}
+                  src={language.flag}
+                  alt={language.name}
                   className="w-[18px] h-auto mr-1.5 border border-gray-200"
                 />
-                <span>{selectedLanguage.name}</span>
+                <span>{language.name}</span>
                 <svg
                   width="10"
                   height="6"
@@ -305,14 +301,14 @@ export default function AdminHeader() {
                 <div className="absolute right-0 top-full mt-2 w-32 bg-white border border-[#ebebeb] rounded shadow-md z-50 py-1">
                   {languages.map((lang) => (
                     <button
-                      key={lang.name}
+                      key={lang.code}
                       type="button"
                       onClick={() => {
-                        setSelectedLanguage(lang);
+                        setLanguage(lang.code);
                         setLanguageDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center hover:bg-gray-100 transition-colors ${
-                        selectedLanguage.name === lang.name
+                        language.code === lang.code
                           ? "text-[#00a99d] font-semibold"
                           : "text-[#555]"
                       }`}
@@ -338,11 +334,11 @@ export default function AdminHeader() {
               >
                 {/* Dandelion Avatar Circle matching Modesy photo */}
                 <img
-                  src="/assets/img/admin-avatar.jpg"
-                  alt="Admin"
+                  src={user?.avatar || "/assets/img/admin-avatar.jpg"}
+                  alt={user?.name || "Admin"}
                   className="w-[26px] h-[26px] rounded-full object-cover shrink-0 ring-1 ring-black/10"
                 />
-                <span className="font-medium text-[14px] text-[#333]">Admin</span>
+                <span className="font-medium text-[14px] text-[#333]">{user?.name || "Admin"}</span>
                 <svg
                   width="10"
                   height="6"
@@ -382,7 +378,7 @@ export default function AdminHeader() {
                             className="w-[18px] h-[18px] text-gray-500 group-hover:text-[#00a99d] transition-colors shrink-0"
                             strokeWidth={1.75}
                           />
-                          <span className="truncate">{item.title}</span>
+                          <span className="truncate">{t(item.title)}</span>
                         </button>
                       );
                     }
@@ -397,7 +393,7 @@ export default function AdminHeader() {
                           className="w-[18px] h-[18px] text-gray-500 group-hover:text-[#00a99d] transition-colors shrink-0"
                           strokeWidth={1.75}
                         />
-                        <span className="truncate">{item.title}</span>
+                        <span className="truncate">{t(item.title)}</span>
                       </Link>
                     );
                   })}
@@ -427,15 +423,17 @@ export default function AdminHeader() {
             </div>
 
             {/* Search Bar */}
-            <div className="flex-1 max-w-[620px]">
+            <form onSubmit={handleSearch} className="flex-1 max-w-[620px]">
               <div className="relative flex items-center bg-[#f6f6f6] border border-[#f6f6f6] rounded-[4px] h-[46px] w-full">
                 <input
                   type="text"
-                  placeholder="Search for products, categories or brands"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t("Search for products, categories or brands")}
                   className="w-full h-full bg-transparent pl-5 pr-12 text-[14px] text-[#7b808a] placeholder-[#7b808a] outline-none"
                 />
                 <button
-                  type="button"
+                  type="submit"
                   aria-label="Search"
                   className="absolute right-0 top-0 h-full w-[46px] flex items-center justify-center text-[#7b808a] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-none"
                 >
@@ -454,14 +452,14 @@ export default function AdminHeader() {
                   </svg>
                 </button>
               </div>
-            </div>
+            </form>
           </div>
 
           {/* Right Actions: Cart, Wishlist, Sell Now */}
           <div className="flex items-center space-x-7 shrink-0">
             {/* Cart */}
             <Link
-              href="/admin/orders"
+              href="/admin/cart"
               className="flex items-center text-[#555555] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0 relative group"
             >
               <div className="relative mr-1.5 flex items-center">
@@ -486,16 +484,16 @@ export default function AdminHeader() {
                 )}
               </div>
               <span className="text-[14px] font-medium leading-[26px]">
-                Cart
+                {t("Cart")}
               </span>
             </Link>
 
             {/* Wishlist */}
             <Link
-              href="/admin"
-              className="flex items-center text-[#555555] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0"
+              href="/admin/wishlist"
+              className="flex items-center text-[#555555] hover:text-[#00a99d] transition-colors cursor-pointer bg-transparent border-0 p-0 relative"
             >
-              <div className="mr-1.5 flex items-center">
+              <div className="relative mr-1.5 flex items-center">
                 <svg
                   width="26"
                   height="26"
@@ -508,9 +506,14 @@ export default function AdminHeader() {
                 >
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                 </svg>
+                {totalWishlistItems > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-[#f43f5e] text-white text-[10px] min-w-4 h-4 px-1 rounded-full flex items-center justify-center font-bold">
+                    {totalWishlistItems}
+                  </span>
+                )}
               </div>
               <span className="text-[14px] font-medium leading-[26px]">
-                Wishlist
+                {t("Wishlist")}
               </span>
             </Link>
 
@@ -519,7 +522,7 @@ export default function AdminHeader() {
               href="/admin/dashboard"
               className="bg-[#00a99d] hover:brightness-95 text-white text-[14px] font-medium px-5 py-2 rounded-[3px] transition-all cursor-pointer border-0 leading-[22px] inline-block text-center"
             >
-              Sell Now
+              {t("Sell Now")}
             </Link>
           </div>
         </div>
@@ -552,7 +555,7 @@ export default function AdminHeader() {
                         : "text-[#222222] hover:text-[#00a99d]"
                     }`}
                   >
-                    <span>{category.title}</span>
+                    <span>{t(category.title)}</span>
                     <span
                       className={`absolute bottom-0 left-0 right-0 h-[2px] bg-[#00a99d] transition-opacity ${
                         isHovered || isActive ? "opacity-100" : "opacity-0"
@@ -581,7 +584,7 @@ export default function AdminHeader() {
                       href={`/admin/category/${getCategorySlug(activeCategory)}?sub=${encodeURIComponent(sub.title)}`}
                       className="font-bold text-[#222] text-[14px] mb-2.5 cursor-pointer hover:text-[#00a99d] transition-colors leading-[22px] block"
                     >
-                      {sub.title}
+                      {t(sub.title)}
                     </Link>
                     {sub.items.length > 0 && (
                       <ul className="space-y-1.5 list-none p-0 m-0">
@@ -591,7 +594,7 @@ export default function AdminHeader() {
                               href={`/admin/category/${getCategorySlug(activeCategory)}?sub=${encodeURIComponent(sub.title)}&item=${encodeURIComponent(item)}`}
                               className="text-[13px] text-[#555] hover:text-[#00a99d] transition-colors cursor-pointer text-left block leading-[20px]"
                             >
-                              {item}
+                              {t(item)}
                             </Link>
                           </li>
                         ))}
@@ -619,7 +622,7 @@ export default function AdminHeader() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
                       {/* Label Text */}
                       <span className="absolute bottom-0 left-0 right-0 p-2.5 text-white text-[13px] font-semibold text-left drop-shadow-sm select-none">
-                        {imgItem.label}
+                        {t(imgItem.label)}
                       </span>
                     </Link>
                   ))}
@@ -694,9 +697,34 @@ export default function AdminHeader() {
               </svg>
             </button>
 
+            {/* Wishlist Icon */}
+            <Link
+              href="/admin/wishlist"
+              className="p-1 text-[#555] bg-transparent border-0 cursor-pointer relative"
+              aria-label="Wishlist"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              {totalWishlistItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#f43f5e] text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+                  {totalWishlistItems}
+                </span>
+              )}
+            </Link>
+
             {/* Cart Icon */}
             <Link
-              href="/admin/orders"
+              href="/admin/cart"
               className="p-1 text-[#555] bg-transparent border-0 cursor-pointer relative"
               aria-label="Cart"
             >
@@ -714,25 +742,43 @@ export default function AdminHeader() {
                 <circle cx="18" cy="20" r="1.5" fill="currentColor" />
                 <path d="M2 3h3.5l2.2 11.2a1.5 1.5 0 0 0 1.5 1.2h9.5a1.5 1.5 0 0 0 1.5-1.2L22 6H6" />
               </svg>
-              <span className="absolute -top-1 -right-1 bg-[#f05a5b] text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
-                0
-              </span>
+              {totalCartItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#00a99d] text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+                  {totalCartItems}
+                </span>
+              )}
+            </Link>
+
+            {/* Profile Avatar */}
+            <Link
+              href="/admin/profile"
+              className="p-0.5 border-0 bg-transparent cursor-pointer flex items-center"
+              aria-label="Profile"
+            >
+              <img
+                src={user?.avatar || "/assets/img/admin-avatar.jpg"}
+                alt={user?.name || "Admin"}
+                className="w-[24px] h-[24px] rounded-full object-cover ring-1 ring-gray-300"
+              />
             </Link>
           </div>
         </div>
 
         {/* Mobile Search Input Row */}
         {mobileSearchOpen && (
-          <div className="px-4 pb-3">
+          <form onSubmit={handleSearch} className="px-4 pb-3">
             <div className="relative flex items-center bg-[#f6f6f6] border border-[#f6f6f6] rounded-[4px] h-[40px] w-full">
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search for products, categories or brands"
                 className="w-full h-full bg-transparent pl-4 pr-10 text-[13px] text-[#7b808a] placeholder-[#7b808a] outline-none"
               />
               <button
-                type="button"
-                className="absolute right-0 top-0 h-full w-[40px] flex items-center justify-center text-[#7b808a] bg-transparent border-none"
+                type="submit"
+                aria-label="Search"
+                className="absolute right-0 top-0 h-full w-[40px] flex items-center justify-center text-[#7b808a] bg-transparent border-none cursor-pointer"
               >
                 <svg
                   width="16"
@@ -749,7 +795,7 @@ export default function AdminHeader() {
                 </svg>
               </button>
             </div>
-          </div>
+          </form>
         )}
 
         {/* Mobile Sidebar / Drawer */}
@@ -775,7 +821,7 @@ export default function AdminHeader() {
                     : "border-transparent text-[#666]"
                 }`}
               >
-                Main Menu
+                {t("Main Menu")}
               </button>
               <button
                 type="button"
@@ -786,7 +832,7 @@ export default function AdminHeader() {
                     : "border-transparent text-[#666]"
                 }`}
               >
-                Categories
+                {t("Categories")}
               </button>
             </div>
 
@@ -797,13 +843,13 @@ export default function AdminHeader() {
                 <div className="p-3 bg-gray-50 rounded border border-gray-200 mb-2">
                   <div className="flex items-center space-x-2.5 mb-2.5 pb-2.5 border-b border-gray-200">
                     <img
-                      src="/assets/img/admin-avatar.jpg"
-                      alt="Admin"
+                      src={user?.avatar || "/assets/img/admin-avatar.jpg"}
+                      alt={user?.name || "Admin"}
                       className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-black/10"
                     />
                     <div>
                       <div className="text-[14px] font-semibold text-gray-800">
-                        Admin
+                        {user?.name || "Admin"}
                       </div>
                       <div className="text-[11px] text-gray-500">
                         Administrator
@@ -822,7 +868,7 @@ export default function AdminHeader() {
                           className="flex items-center gap-2 p-1.5 text-[12px] text-gray-700 hover:text-[#00a99d] hover:bg-white rounded transition-colors"
                         >
                           <Icon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                          <span className="truncate">{item.title}</span>
+                          <span className="truncate">{t(item.title)}</span>
                         </Link>
                       );
                     })}
@@ -836,6 +882,8 @@ export default function AdminHeader() {
                       href={
                         item === "Home"
                           ? "/admin"
+                          : item === "Wishlist"
+                          ? "/admin/wishlist"
                           : item === "Sell on Modesy"
                           ? "/admin/dashboard"
                           : item === "Blog"
@@ -847,7 +895,7 @@ export default function AdminHeader() {
                       onClick={() => setMobileMenuOpen(false)}
                       className="block w-full text-left py-2 text-[14px] text-[#333] hover:text-[#00a99d] transition-colors border-b border-gray-100 last:border-0"
                     >
-                      {item}
+                      {t(item)}
                     </Link>
                   )
                 )}
@@ -872,7 +920,7 @@ export default function AdminHeader() {
                     >
                       <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
                     </svg>
-                    <span className="truncate">{currentLocation}</span>
+                    <span className="truncate">{currentLocation === "Location" ? t("Location") : currentLocation}</span>
                   </button>
 
                   {currentLocation !== "Location" && (
@@ -881,9 +929,43 @@ export default function AdminHeader() {
                       onClick={() => setCurrentLocation("Location")}
                       className="bg-[#e3e3e7] text-[#515660] text-[12px] px-2 py-0.5 rounded-[3px]"
                     >
-                      Reset
+                      {t("Reset")}
                     </button>
                   )}
+                </div>
+
+                {/* Mobile Currency & Language Selector */}
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-[13px] gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#666] text-[12px]">{t("Currency:")}</span>
+                    <select
+                      value={currency.code}
+                      onChange={(e) => setCurrencyCode(e.target.value)}
+                      aria-label="Select Currency"
+                      className="text-[12px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[#333] outline-none"
+                    >
+                      {currencies.map((curr) => (
+                        <option key={curr.code} value={curr.code}>
+                          {curr.code} ({curr.symbol})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#666] text-[12px]">{t("Lang:")}</span>
+                    <select
+                      value={language.code}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      aria-label="Select Language"
+                      className="text-[12px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[#333] outline-none"
+                    >
+                      {languages.map((lang) => (
+                        <option key={lang.code} value={lang.code}>
+                          {lang.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -899,7 +981,7 @@ export default function AdminHeader() {
                           onClick={() => setMobileMenuOpen(false)}
                           className="text-left text-[14px] font-medium text-[#333] hover:text-[#00a99d]"
                         >
-                          {cat.title}
+                          {t(cat.title)}
                         </Link>
                         {cat.subcategories.length > 0 && (
                           <button
@@ -941,7 +1023,7 @@ export default function AdminHeader() {
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="text-[13px] font-semibold text-[#222] hover:text-[#00a99d] block"
                               >
-                                {sub.title}
+                                {t(sub.title)}
                               </Link>
                               {sub.items.length > 0 && (
                                 <div className="pl-2 space-y-1 mt-1">
@@ -952,7 +1034,7 @@ export default function AdminHeader() {
                                       onClick={() => setMobileMenuOpen(false)}
                                       className="block text-[12px] text-[#666] hover:text-[#00a99d] py-0.5"
                                     >
-                                      {it}
+                                      {t(it)}
                                     </Link>
                                   ))}
                                 </div>

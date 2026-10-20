@@ -1,9 +1,0 @@
-export { default as MarketplaceHome } from "./MarketplaceHome";
-export { default as Hero } from "./Hero";
-export { default as ShopByCategory } from "./ShopByCategory";
-export { default as SpecialOffers } from "./SpecialOffers";
-export { default as NewArrivals } from "./NewArrivals";
-export { default as ClothingSection } from "./ClothingSection";
-export { default as JewelrySection } from "./JewelrySection";
-export { default as BrandSection } from "./BrandSection";
-export { default as BlogSection } from "./BlogSection";

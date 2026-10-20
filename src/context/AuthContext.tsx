@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import LoginModal from "@/components/auth/LoginModal";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export interface User {
@@ -18,11 +18,13 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoggedIn: boolean;
+  isInitialized: boolean;
   isLoginModalOpen: boolean;
   openLoginModal: () => void;
   closeLoginModal: () => void;
   login: (userData?: Partial<User> & { password?: string }) => Promise<{ success: boolean; error?: string; user?: User }>;
   register: (userData: { email: string; password?: string; name?: string; role?: string }) => Promise<void>;
+  updateUser: (data: Partial<User>) => Promise<boolean>;
   logout: () => Promise<void> | void;
 }
 
@@ -32,9 +34,9 @@ const STORAGE_KEY = "modesy_auth_user";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
 
   // Helper to sync user from Supabase session
   const syncSupabaseUser = async (sessionUser: any): Promise<User | null> => {
@@ -89,10 +91,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        // Clean up legacy auto-injected mock vendor user
+        if (parsed?.id === "00000000-0000-0000-0000-000000000002" && parsed?.email === "trendshop@gmail.com") {
+          localStorage.removeItem(STORAGE_KEY);
+        } else {
+          setUser(parsed);
+        }
       }
     } catch (e) {
       console.error("Failed to parse auth user", e);
+    } finally {
+      setIsInitialized(true);
     }
 
     // 2. If Supabase is configured, listen to Supabase Auth State
@@ -121,91 +131,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // 3. Check query params for explicit login modal trigger
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("login") === "true" || params.get("action") === "login") {
-        setIsLoginModalOpen(true);
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, "", newUrl);
+    const handleAuthChange = (e: any) => {
+      if (e?.detail) {
+        setUser(e.detail);
+      } else {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) setUser(JSON.parse(stored));
+        } catch {}
       }
-    }
+    };
+    window.addEventListener("modesy_auth_change", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("modesy_auth_change", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
   }, []);
 
-  // 4. Reactive portal-aware role synchronization (ensures /dashboard & /vendor always have vendor role)
-  useEffect(() => {
-    if (!pathname || isSupabaseConfigured()) return;
-    const isExplicitLogout =
-      typeof window !== "undefined" &&
-      sessionStorage.getItem("modesy_explicit_logout") === "true";
-    if (isExplicitLogout) return;
+  const REGISTERED_USERS_KEY = "modesy_registered_users";
 
-    if (pathname.startsWith("/vendor") || pathname.startsWith("/dashboard")) {
-      if (user?.role !== "vendor") {
-        const vendorUser: User = {
-          id: "00000000-0000-0000-0000-000000000002",
-          name: "Trendshop",
-          email: "trendshop@gmail.com",
-          role: "vendor",
-          avatar: "/assets/img/trendshop-avatar.jpg",
-          is_vendor: true,
-          wallet_balance: 793.52,
-        };
-        setUser(vendorUser);
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(vendorUser));
-        } catch (e) {}
-      }
-    } else if (pathname.startsWith("/admin")) {
-      if (user?.role !== "admin") {
-        const adminUser: User = {
-          id: "00000000-0000-0000-0000-000000000001",
-          name: "Admin",
-          email: "admin@gmail.com",
-          role: "admin",
-          avatar: "/assets/img/admin-avatar.jpg",
-          is_vendor: false,
-          wallet_balance: 1250.0,
-        };
-        setUser(adminUser);
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
-        } catch (e) {}
-      }
-    } else if (pathname.startsWith("/moderator")) {
-      if (user?.role !== "moderator") {
-        const modUser: User = {
-          id: "00000000-0000-0000-0000-000000000003",
-          name: "Moderator",
-          email: "moderator@gmail.com",
-          role: "moderator",
-          avatar: "/assets/img/admin-avatar.jpg",
-          is_vendor: false,
-          wallet_balance: 150.0,
-        };
-        setUser(modUser);
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(modUser));
-        } catch (e) {}
-      }
-    } else if (pathname.startsWith("/member")) {
-      if (user?.role !== "member") {
-        const memberUser: User = {
-          id: "00000000-0000-0000-0000-000000000004",
-          name: "Member",
-          email: "members@gmail.com",
-          role: "member",
-          avatar: "/assets/img/admin-avatar.jpg",
-          is_vendor: false,
-          wallet_balance: 45.0,
-        };
-        setUser(memberUser);
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(memberUser));
-        } catch (e) {}
-      }
+  const getRegisteredUsers = () => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem(REGISTERED_USERS_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
     }
-  }, [pathname, user?.role]);
+  };
+
+  const saveRegisteredUser = (newUser: {
+    email: string;
+    password?: string;
+    name: string;
+    role: "admin" | "vendor" | "member" | "moderator";
+    avatar?: string;
+  }) => {
+    if (typeof window === "undefined") return;
+    try {
+      const users = getRegisteredUsers();
+      const existingIdx = users.findIndex(
+        (u: any) => u.email.toLowerCase() === newUser.email.toLowerCase()
+      );
+      if (existingIdx >= 0) {
+        users[existingIdx] = { ...users[existingIdx], ...newUser };
+      } else {
+        users.push(newUser);
+      }
+      localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+    } catch (e) {
+      console.error("Failed to save registered user", e);
+    }
+  };
 
   const login = async (
     userData?: Partial<User> & { password?: string }
@@ -215,7 +194,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {}
 
     const email = (userData?.email || "").trim();
-    const password = userData?.password;
+    const password = (userData?.password || "").trim();
+
+    if (!email) {
+      return { success: false, error: "Please enter your email address." };
+    }
+    if (!password) {
+      return { success: false, error: "Please enter your password." };
+    }
 
     // 1. If Supabase is connected and password provided, authenticate against Supabase Auth
     if (isSupabaseConfigured() && password && email) {
@@ -227,34 +213,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!error && data.user) {
         const syncedUser = await syncSupabaseUser(data.user);
         return { success: true, user: syncedUser || undefined };
-      } else if (
-        error &&
-        !email.includes("codingest.net") &&
-        !["admin@gmail.com", "trendshop@gmail.com", "moderator@gmail.com", "members@gmail.com"].includes(
-          email.toLowerCase()
-        )
-      ) {
-        // If it's a real Supabase account and error occurred, return error
-        return { success: false, error: error.message };
       }
     }
 
-    // 2. Demo / Fallback login (works offline or without Supabase config)
     const normalizedEmail = email.toLowerCase();
+    const registeredUsers = getRegisteredUsers();
+    const foundRegistered = registeredUsers.find(
+      (u: any) => u.email.toLowerCase() === normalizedEmail
+    );
+
+    // If found in local registered users
+    if (foundRegistered) {
+      if (foundRegistered.password && foundRegistered.password !== password) {
+        return { success: false, error: "Incorrect password. Please try again." };
+      }
+      const role = (foundRegistered.role || "member") as "admin" | "vendor" | "member" | "moderator";
+      const authenticatedUser: User = {
+        id: foundRegistered.id || "00000000-0000-0000-0000-000000000004",
+        name: foundRegistered.name || email.split("@")[0],
+        email: foundRegistered.email,
+        role: role,
+        avatar: foundRegistered.avatar || "/images/peter-jone-avatar.jpg",
+        is_vendor: role === "vendor",
+        wallet_balance: role === "admin" ? 1250.0 : role === "vendor" ? 793.52 : role === "moderator" ? 150.0 : 45.0,
+      };
+
+      setUser(authenticatedUser);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
+        window.dispatchEvent(new CustomEvent("modesy_auth_change", { detail: authenticatedUser }));
+      } catch (e) {}
+      return { success: true, user: authenticatedUser };
+    }
+
+    // 2. Demo accounts validation
     const isVendor =
       userData?.role === "vendor" ||
-      normalizedEmail.includes("trendshop") ||
-      normalizedEmail.includes("vendor");
+      normalizedEmail === "trendshop@gmail.com" ||
+      normalizedEmail === "vendor@gmail.com";
     const isModerator =
       userData?.role === "moderator" ||
-      normalizedEmail.includes("moderator");
+      normalizedEmail === "moderator@gmail.com";
     const isAdmin =
       !isVendor &&
       !isModerator &&
       (userData?.role === "admin" ||
-        normalizedEmail.includes("admin") ||
         normalizedEmail === "admin@gmail.com" ||
         normalizedEmail === "admin@codingest.net");
+    const isMember =
+      normalizedEmail === "member@gmail.com" ||
+      normalizedEmail === "members@gmail.com" ||
+      normalizedEmail === "user@gmail.com";
+
+    const isRecognizedDemo = isAdmin || isVendor || isModerator || isMember;
+
+    if (!isRecognizedDemo && !isSupabaseConfigured()) {
+      return {
+        success: false,
+        error: "Account not registered. Please create an account first.",
+      };
+    }
 
     const resolvedRole: "admin" | "vendor" | "member" | "moderator" = isVendor
       ? "vendor"
@@ -281,8 +299,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           : isVendor
           ? "Trendshop"
           : isModerator
-          ? "Moderator"
-          : "Member"),
+          ? "Roger Novak"
+          : "Peter Jone"),
       email:
         email ||
         (isAdmin
@@ -297,9 +315,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userData?.avatar ||
         (isVendor
           ? "/assets/img/trendshop-avatar.jpg"
+          : isModerator
+          ? "/assets/img/roger-avatar.jpg"
           : isAdmin
           ? "/assets/img/admin-avatar.jpg"
-          : "/assets/img/admin-avatar.jpg"),
+          : "/images/peter-jone-avatar.jpg"),
       is_vendor: isVendor,
       wallet_balance: isAdmin ? 1250.0 : isVendor ? 793.52 : isModerator ? 150.0 : 45.0,
     };
@@ -307,6 +327,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(authenticatedUser);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
+      window.dispatchEvent(new CustomEvent("modesy_auth_change", { detail: authenticatedUser }));
     } catch (e) {
       console.error("Failed to store user", e);
     }
@@ -315,6 +336,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (userData: { email: string; password?: string; name?: string; role?: string }) => {
+    saveRegisteredUser({
+      email: userData.email.trim(),
+      password: userData.password,
+      name: userData.name || userData.email.split("@")[0],
+      role: (userData.role as any) || "member",
+    });
+
     if (isSupabaseConfigured() && userData.password) {
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
@@ -331,8 +359,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
     }
-    // Fallback
-    await login({ email: userData.email, name: userData.name, role: (userData.role as any) || "member" });
+    // Authenticate and save local session
+    await login({
+      email: userData.email,
+      password: userData.password,
+      name: userData.name,
+      role: (userData.role as any) || "member",
+    });
+  };
+
+  const updateUser = async (data: Partial<User>): Promise<boolean> => {
+    if (!user) return false;
+
+    const updatedUser: User = {
+      ...user,
+      ...data,
+      name: data.name !== undefined ? data.name : user.name,
+      avatar: data.avatar !== undefined ? data.avatar : user.avatar,
+    };
+
+    setUser(updatedUser);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser));
+      window.dispatchEvent(
+        new CustomEvent("modesy_auth_change", { detail: updatedUser })
+      );
+    } catch (e) {
+      console.error("Failed to store updated user", e);
+    }
+
+    if (isSupabaseConfigured() && user.id) {
+      try {
+        const names = (data.name || "").trim().split(" ");
+        const firstName = data.name ? names[0] : undefined;
+        const lastName = data.name && names.length > 1 ? names.slice(1).join(" ") : undefined;
+
+        const updatePayload: any = {};
+        if (data.name) updatePayload.username = data.name;
+        if (firstName) updatePayload.first_name = firstName;
+        if (lastName) updatePayload.last_name = lastName;
+        if (data.avatar) updatePayload.avatar_url = data.avatar;
+
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from("profiles").update(updatePayload).eq("id", user.id);
+        }
+      } catch (err) {
+        console.warn("Could not sync profile update to Supabase:", err);
+      }
+    }
+
+    return true;
   };
 
   const logout = async () => {
@@ -361,11 +437,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isLoggedIn: !!user,
+        isInitialized,
         isLoginModalOpen,
         openLoginModal,
         closeLoginModal,
         login,
         register,
+        updateUser,
         logout,
       }}
     >
@@ -380,16 +458,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: loggedUser.name,
           });
 
-          // Role-based redirection after login
+          // Redirect to appropriate landing page based on role
           if (res?.user) {
-            if (res.user.role === "admin") {
-              router.push("/admin/admin-panel");
-            } else if (res.user.role === "moderator") {
-              router.push("/moderator/admin-panel");
-            } else if (res.user.role === "vendor") {
-              router.push("/vendor/dashboard");
-            } else if (res.user.role === "member") {
-              router.push("/member/profile");
+            const role = res.user.role;
+            if (role === "admin") {
+              router.push("/admin");
+            } else if (role === "vendor") {
+              router.push("/vendor");
+            } else if (role === "moderator") {
+              router.push("/moderator");
+            } else if (role === "member") {
+              router.push("/member");
+            } else {
+              router.push("/guest");
             }
           }
         }}
@@ -404,11 +485,13 @@ export function useAuth(): AuthContextType {
     return {
       user: null,
       isLoggedIn: false,
+      isInitialized: false,
       isLoginModalOpen: false,
       openLoginModal: () => {},
       closeLoginModal: () => {},
       login: async () => ({ success: false }),
       register: async () => {},
+      updateUser: async () => false,
       logout: () => {},
     };
   }

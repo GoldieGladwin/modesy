@@ -26,6 +26,7 @@ import {
   Product,
 } from "@/data/products";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 
 interface ProductDetailPageProps {
   params: Promise<{
@@ -36,11 +37,13 @@ interface ProductDetailPageProps {
 export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { id } = use(params);
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string } | null>(null);
 
   // Find product by id
   const product: Product = getProductById(id);
+  const isWishlisted = isInWishlist(product.id);
 
   // Gallery images
   const galleryImages =
@@ -55,7 +58,6 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     product.colors && product.colors.length > 0 ? product.colors[0].name : "Standard"
   );
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "description" | "additional" | "shipping" | "reviews" | "comments"
   >("description");
@@ -90,11 +92,11 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       {/* Breadcrumb */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-2 w-full">
         <nav className="text-xs text-gray-500 flex items-center gap-1.5 flex-wrap">
-          <Link href="/" className="hover:text-[#00a99d]">
+          <Link href="/guest" className="hover:text-[#00a99d]">
             Home
           </Link>
           <span>/</span>
-          <Link href="/products" className="hover:text-[#00a99d]">
+          <Link href="/guest/products" className="hover:text-[#00a99d]">
             {product.category || "Products"}
           </Link>
           <span>/</span>
@@ -177,7 +179,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 <div className="flex items-center gap-3">
                   <span>
                     Seller:{" "}
-                    <Link href="/" className="text-[#1963d8] hover:underline font-medium">
+                    <Link href="/guest" className="text-[#1963d8] hover:underline font-medium">
                       {product.seller}
                     </Link>
                   </span>
@@ -339,14 +341,17 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 {/* Wishlist Link */}
                 <button
                   type="button"
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={() => toggleWishlist(product.id)}
                   className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-rose-600 font-medium transition cursor-pointer"
                 >
                   <Heart
-                    className={`w-4 h-4 ${isWishlisted ? "fill-rose-500 text-rose-500" : ""
-                      }`}
+                    className={`w-4 h-4 ${
+                      isWishlisted ? "fill-rose-500 text-rose-500" : ""
+                    }`}
                   />
-                  <span>Add to wishlist</span>
+                  <span>
+                    {isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                  </span>
                 </button>
               </div>
 
@@ -511,7 +516,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
           <div className="text-center pt-2">
             <Link
-              href="/products/jewelry-accessories"
+              href="/guest/products"
               className="text-xs font-semibold text-[#1963d8] hover:underline"
             >
               View All &gt;

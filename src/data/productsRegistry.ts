@@ -1,6 +1,6 @@
 import { SPECIAL_OFFERS } from "./specialOffers";
-import { NEW_ARRIVALS_PRODUCTS } from "@/components/homepage/NewArrivals";
-import { CLOTHING_PRODUCTS } from "@/components/homepage/ClothingSection";
+import { NEW_ARRIVALS_PRODUCTS } from "@/components/home/NewArrivals";
+import { CLOTHING_PRODUCTS } from "@/components/home/ClothingSection";
 import { allProductsData, jewelryProductsData } from "./products";
 import { CATEGORY_PRODUCTS } from "./categoryProducts";
 
@@ -19,7 +19,7 @@ export interface ProductComment {
 }
 
 export interface DetailedProduct {
-  id: number;
+  id: number | string;
   slug: string;
   title: string;
   seller: string;
@@ -57,7 +57,7 @@ export interface DetailedProduct {
   comments: ProductComment[];
 }
 
-export const DETAILED_PRODUCTS: Record<number, DetailedProduct> = {
+export const DETAILED_PRODUCTS: Record<string | number, DetailedProduct> = {
   // 1. Black midi skirt with white flowers (ID: 41)
   41: {
     id: 41,
