@@ -1,6 +1,12 @@
-# Modesy Multi-Vendor Marketplace — Dokumentasi Lengkap & Arsitektur
+# Modesy Multi-Vendor Marketplace (Clone / Duplikat) — Dokumentasi Lengkap & Arsitektur
 
-Dokumentasi ini merangkum **struktur folder proyek, alur kerja (web flow), sistem autentikasi multi-role, integrasi database Supabase, dan manajemen aset produk** pada aplikasi Modesy Marketplace Clone berbasis Next.js 15 (App Router), Tailwind CSS, TypeScript, dan Supabase.
+> [!WARNING]
+> **PEMBERITAHUAN HAK CIPTA & DISCLAIMER (COPYRIGHT & ATTRIBUTION NOTICE)**:
+> Proyek ini merupakan **proyek duplikat / hasil *cloning* & *re-engineering*** dari platform marketplace aslinya, yaitu **[Modesy - Marketplace & Classified Ads Script](https://codecanyon.net/item/modesy-marketplace-classified-ads-script/22714108)** yang dibuat oleh **Codingest**.
+> 
+> Proyek ini dikembangkan murni untuk keperluan **pembelajaran, riset arsitektur modern, tugas akademik Rekayasa Perangkat Lunak (RPL), dan portofolio pengembangan software**. Seluruh hak cipta, merek dagang, logo, konsep desain antarmuka (UI/UX), dan hak kekayaan intelektual (HAKI) terkait **Modesy** adalah hak milik penuh dari pembuat aslinya (**Codingest**). Proyek ini **tidak berafiliasi resmi** dengan pembuat aslinya dan **tidak digunakan untuk tujuan komersial**.
+
+Dokumentasi ini merangkum **struktur folder proyek, alur kerja (web flow), sistem autentikasi multi-role, integrasi database Supabase, dan manajemen aset produk** pada aplikasi duplikat Modesy Marketplace berbasis Next.js 15 (App Router), Tailwind CSS, TypeScript, dan Supabase.
 
 ---
 
@@ -258,7 +264,8 @@ modesy-dupl/
 
 1. **Clone / Buka Direktori Proyek**:
    ```bash
-   cd "d:\Next JS\modesy-dupl"
+   git clone https://github.com/GoldieGladwin/modesy.git
+   cd modesy
    ```
 
 2. **Instal Dependensi**:
@@ -292,3 +299,13 @@ modesy-dupl/
 | `npm run start` | Menjalankan server aplikasi Next.js dalam mode produksi |
 | `npm run lint` | Memeriksa kepatuhan kode dan deteksi *code smell* |
 | `npx tsc --noEmit` | Memverifikasi kepatuhan tipe data TypeScript di seluruh proyek |
+
+---
+
+## ⚖️ 6. Hak Cipta, Atribusi & Disclaimer (Copyright & Legal Notice)
+
+- **Pembuat Asli**: Platform asli **Modesy - Marketplace & Classified Ads Script** diciptakan dan dimiliki sepenuhnya oleh **[Codingest](https://codingest.com/)** (tersedia resmi di platform CodeCanyon / Envato Market).
+- **Sifat Repositori**: Repositori ini merupakan **proyek independen duplikat (cloning / re-implementation)** yang memetakan kembali fitur-fitur Modesy menggunakan stack modern: **Next.js 15, TypeScript, Tailwind CSS, dan Supabase**.
+- **Batasan Penggunaan**: Proyek ini dikerjakan semata-mata sebagai sarana **pembelajaran rekayasa perangkat lunak (RPL), penelitian akademis, dan portofolio pengembangan web modern**.
+- **Kekayaan Intelektual**: Seluruh nama produk, merek dagang, logo, desain tata letak UI asli, dan grafis milik Modesy sepenuhnya dilindungi hak cipta oleh pemilik aslinya (**Codingest**). Penggunaan dalam repositori ini tunduk pada prinsip *fair use* untuk tujuan edukatif dan non-komersial tanpa klaim kepemilikan atas kekayaan intelektual asli Modesy.
+
